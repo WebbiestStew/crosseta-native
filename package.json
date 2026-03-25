@@ -5,7 +5,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "ios:release": "expo run:ios --configuration Release",
+    "clean": "rm -rf .expo ios/build android/build android/app/build"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",

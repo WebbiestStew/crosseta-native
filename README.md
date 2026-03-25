@@ -17,9 +17,9 @@
 
 ## Overview
 
-CrossETA is a mobile app for frequent US border crossers — commuters, truckers, and travelers — who need real-time wait times and smart departure planning across **43+ US–Mexico and US–Canada ports of entry**.
+CrossETA is a mobile app for frequent US border crossers — commuters, truckers, and travelers — who need real-time wait times and smart departure planning across **all US land border crossings** (81 official CBP ports of entry).
 
-Pull live data from the official CBP API, predict wait times up to 3 hours ahead, start a GPS-tracked crossing session, and get notified the moment conditions are in your favor.
+Pull live data from the **official CBP BWTnew API** (covers all US–Mexico and US–Canada land borders), predict wait times up to 3 hours ahead, start a GPS-tracked crossing session, and get notified the moment conditions are in your favor.
 
 ---
 
@@ -27,7 +27,7 @@ Pull live data from the official CBP API, predict wait times up to 3 hours ahead
 
 ### Live Wait Times
 - Pulls from the **official CBP BWTnew API** every 5 minutes
-- Covers **26 US–Mexico** crossings (CA, AZ, NM, TX) and **19 US–Canada** crossings (WA, ID, MT, ND, MN, MI, NY, VT, ME)
+- Covers **all 81 US land border crossing ports of entry** (26 US–Mexico crossings spans CA, AZ, NM, TX; 19+ US–Canada crossings spans WA, ID, MT, ND, MN, MI, NY, VT, ME)
 - Shows **Standard**, **SENTRI/NEXUS**, and **Ready Lane** waits per crossing
 - Stale-data banner animates in after 15 minutes without a refresh
 - Offline cache via AsyncStorage for instant load on re-open
@@ -193,6 +193,7 @@ npx expo run:android
 
 ## Roadmap
 
+- [ ] Expand to **all 81 US border crossing ports of entry** (currently ~46, full API coverage coming soon)
 - [ ] Real backend for trip contributions and community reports
 - [ ] Native iOS widget (WidgetKit via Expo)
 - [ ] CarPlay support
