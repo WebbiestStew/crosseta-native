@@ -43,7 +43,7 @@ export default function ShareScreen({ route, navigation }) {
           <LinearGradient colors={['#000', '#111']} style={styles.shareCard}>
           <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardHeader}>
             <Text style={styles.cardHeaderText}>🚦 CrossETA</Text>
-            <Text style={styles.cardHeaderSub}>Live Border Wait Times</Text>
+            <Text style={styles.cardHeaderSub}>Live Border Wait Times • Diego V / Stewy</Text>
           </LinearGradient>
 
           <View style={styles.cardBody}>

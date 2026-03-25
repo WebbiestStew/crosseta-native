@@ -47,6 +47,7 @@ export default function OnboardingScreen({ onComplete }) {
           <Text style={{ fontSize: 72, marginBottom: 16 }}>🛂</Text>
           <Text style={[styles.heroTitle, { color: text, fontSize: 44 }]}>CrossETA</Text>
           <Text style={{ fontSize: 19, color: '#8E8E93', marginTop: 8, fontWeight: '500' }}>Border crossing wait times</Text>
+          <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 6 }}>Created by Diego V / Stewy</Text>
         </View>
         {FEATURES.map((f) => (
           <View key={f.icon} style={styles.featureRow}>

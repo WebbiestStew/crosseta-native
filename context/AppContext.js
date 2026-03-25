@@ -34,6 +34,9 @@ const KEYS = {
   analytics:        '@crosseta/analytics',        // local event log
   adminMode:        '@crosseta/adminMode',        // lightweight local moderator mode
   accessibility:    '@crosseta/accessibility',    // { fontSizeMultiplier: 1.0, highContrast: false }
+  uiPrefs:          '@crosseta/uiPrefs',          // { simpleMode: boolean, showHelpTips: boolean }
+  notificationProfile: '@crosseta/notificationProfile', // calm | balanced | always
+  savedTripTemplates: '@crosseta/savedTripTemplates',   // [{ id, name, crossingId, laneType, threshold, arrival }]
 };
 
 // Normalize a string for fuzzy CBP name matching
@@ -77,6 +80,9 @@ export function AppProvider({ children }) {
   const [analytics, setAnalytics] = useState([]);
   const [adminMode, setAdminMode] = useState(false);
   const [accessibility, setAccessibilityState] = useState({ fontSizeMultiplier: 1.0, highContrast: false });
+  const [uiPrefs, setUiPrefs] = useState({ simpleMode: false, showHelpTips: true });
+  const [notificationProfile, setNotificationProfileState] = useState('balanced');
+  const [savedTripTemplates, setSavedTripTemplates] = useState([]);
   /** lastFetchTime: unix ms of the most recent successful CBP fetch */
   const [lastFetchTime, setLastFetchTime] = useState(null);
   const notifCooldown = useRef({});
@@ -112,6 +118,10 @@ export function AppProvider({ children }) {
         if (stored[KEYS.quietHours])                    setQuietHours(stored[KEYS.quietHours]);
         if (stored[KEYS.analytics])                     setAnalytics(stored[KEYS.analytics]);
         if (stored[KEYS.adminMode] !== undefined)       setAdminMode(stored[KEYS.adminMode]);
+        if (stored[KEYS.accessibility])                 setAccessibilityState(stored[KEYS.accessibility]);
+        if (stored[KEYS.uiPrefs])                       setUiPrefs(stored[KEYS.uiPrefs]);
+        if (stored[KEYS.notificationProfile])           setNotificationProfileState(stored[KEYS.notificationProfile]);
+        if (stored[KEYS.savedTripTemplates])            setSavedTripTemplates(stored[KEYS.savedTripTemplates]);
         // Restore cached crossing wait data so the list isn't all-zero on first open
         if (stored[KEYS.cachedCrossings])               setCrossings(stored[KEYS.cachedCrossings]);
       } catch { /* fall back to defaults silently */ }
@@ -141,6 +151,10 @@ export function AppProvider({ children }) {
   useEffect(() => { if (hydrated) save(KEYS.quietHours,      quietHours);      }, [quietHours,      hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.analytics,       analytics);       }, [analytics,       hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.adminMode,       adminMode);       }, [adminMode,       hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.accessibility,   accessibility);   }, [accessibility,   hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.uiPrefs,         uiPrefs);         }, [uiPrefs,         hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.notificationProfile, notificationProfile); }, [notificationProfile, hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.savedTripTemplates,  savedTripTemplates);  }, [savedTripTemplates,  hydrated]);
 
   const trackEvent = (name, payload = {}) => {
     setAnalytics((prev) => {
@@ -466,7 +480,7 @@ export function AppProvider({ children }) {
                 startTime:  trip.startTime,
                 endTime:    trip.endTime,
                 actualWaitMinutes: trip.actualWait,
-                appVersion: '1.0.0',
+                appVersion: '1.2.1',
               }),
             });
           } catch { /* silent — failure never blocks the user */ }
@@ -490,7 +504,7 @@ export function AppProvider({ children }) {
 
   const getAnalyticsExport = () => JSON.stringify({
     exportedAt: new Date().toISOString(),
-    appVersion: '1.1.0',
+    appVersion: '1.2.1',
     eventCount: analytics.length,
     events: analytics,
   }, null, 2);
@@ -529,6 +543,72 @@ export function AppProvider({ children }) {
     setOnboarded(true);
   };
 
+  const setSimpleMode = (enabled) => {
+    setUiPrefs((prev) => ({ ...prev, simpleMode: enabled }));
+    trackEvent('set_simple_mode', { enabled });
+  };
+
+  const setShowHelpTips = (enabled) => {
+    setUiPrefs((prev) => ({ ...prev, showHelpTips: enabled }));
+    trackEvent('set_help_tips', { enabled });
+  };
+
+  const applyNotificationProfile = (profileName) => {
+    const next = profileName === 'calm'
+      ? { threshold: 35, quietHours: { enabled: true, start: 21, end: 8 } }
+      : profileName === 'always'
+        ? { threshold: 12, quietHours: { enabled: false, start: 22, end: 7 } }
+        : { threshold: 20, quietHours: { enabled: true, start: 22, end: 7 } };
+
+    setNotificationProfileState(profileName);
+    setQuietHours(next.quietHours);
+    setThresholds((prev) => {
+      const updated = { ...prev };
+      crossings.forEach((c) => { updated[c.id] = next.threshold; });
+      return updated;
+    });
+    trackEvent('set_notification_profile', { profile: profileName, threshold: next.threshold });
+  };
+
+  const saveTripTemplate = (template) => {
+    const created = {
+      id: template.id || `tpl_${Date.now()}`,
+      name: (template.name || 'Saved Trip').slice(0, 40),
+      crossingId: template.crossingId,
+      laneType: template.laneType || 'standard',
+      threshold: template.threshold ?? 20,
+      arrival: template.arrival || '9:00 AM',
+      createdAt: new Date().toISOString(),
+    };
+    setSavedTripTemplates((prev) => [created, ...prev.filter((x) => x.id !== created.id)].slice(0, 20));
+    trackEvent('save_trip_template', { crossingId: created.crossingId, laneType: created.laneType });
+    return created;
+  };
+
+  const deleteTripTemplate = (id) => {
+    setSavedTripTemplates((prev) => prev.filter((x) => x.id !== id));
+    trackEvent('delete_trip_template', { templateId: id });
+  };
+
+  const getWeeklyInsight = () => {
+    if (!favorites.length) return null;
+    const candidates = crossings.filter((c) => favorites.includes(c.id));
+    if (!candidates.length) return null;
+    const best = [...candidates].sort((a, b) => a.wait - b.wait)[0];
+    if (!best?.weeklyPattern?.length) {
+      return { crossingId: best.id, crossingName: best.name, bestDay: 'This week', bestSlot: 'Now', avgWait: best.wait };
+    }
+    const slots = best.weeklyPattern.flatMap((d) => d.slots.map((s) => ({ day: d.day, slot: s.slot, wait: s.wait })));
+    const slot = slots.reduce((a, b) => (b.wait < a.wait ? b : a));
+    return {
+      crossingId: best.id,
+      crossingName: best.name,
+      bestDay: slot.day,
+      bestSlot: slot.slot,
+      avgWait: slot.wait,
+    };
+  };
+
   const setAccessibility = (val) => {
     setAccessibilityState(val);
     if (hydrated) AsyncStorage.setItem(KEYS.accessibility, JSON.stringify(val));
@@ -565,6 +645,10 @@ export function AppProvider({ children }) {
       clearAnalytics, getAnalyticsExport,
       adminMode, setAdminMode,
       accessibility, setAccessibility, setFontSizeMultiplier, setHighContrast,
+      uiPrefs, setSimpleMode, setShowHelpTips,
+      notificationProfile, applyNotificationProfile,
+      savedTripTemplates, saveTripTemplate, deleteTripTemplate,
+      getWeeklyInsight,
     }}>
       {children}
     </AppContext.Provider>

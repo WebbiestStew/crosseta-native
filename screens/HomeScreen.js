@@ -12,11 +12,15 @@ import CrossingCard from '../components/CrossingCard';
 import SkeletonCard from '../components/SkeletonCard';
 
 export default function HomeScreen({ navigation }) {
-  const { crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP, trackEvent } = useApp();
+  const {
+    crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP, trackEvent,
+    uiPrefs, getWeeklyInsight, lastFetchTime,
+  } = useApp();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [sort, setSort] = useState('default');   // 'default' | 'waitAsc' | 'waitDesc' | 'name' | 'nearMe'
   const [openOnly, setOpenOnly] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [nearMeDistances, setNearMeDistances] = useState(null); // { [id]: miles }
   const [loadingNearMe, setLoadingNearMe] = useState(false);
@@ -97,6 +101,7 @@ export default function HomeScreen({ navigation }) {
   const favCrossings = filtered.filter((c) => favorites.includes(c.id));
   const otherCrossings = filtered.filter((c) => !favorites.includes(c.id));
   const bestCrossing = [...filtered].sort((a, b) => a.wait - b.wait)[0];
+  const weeklyInsight = getWeeklyInsight?.();
 
   const isLoading = !hydrated;
 
@@ -143,6 +148,11 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
+        {!uiPrefs.simpleMode && (
+          <TouchableOpacity style={[styles.advancedToggle, { backgroundColor: dark ? '#2C2C2E' : '#E9F3FF' }]} onPress={() => setShowAdvanced((v) => !v)}>
+            <Text style={[styles.advancedToggleText, { color: BLUE }]}>{showAdvanced ? 'Hide Advanced Filters' : 'Show Advanced Filters'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -177,8 +187,23 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
+        {uiPrefs.showHelpTips && (
+          <View style={[styles.helpTip, { backgroundColor: dark ? '#2C2C2E' : '#EAF4FF' }]}> 
+            <Text style={[styles.helpTipText, { color: dark ? '#D0E8FF' : '#0A5FBF' }]}>Tip: Tap a crossing card to see route planning and detailed trends.</Text>
+          </View>
+        )}
+
+        {weeklyInsight && (
+          <View style={[styles.insightCard, { backgroundColor: card }]}> 
+            <Text style={[styles.insightTitle, { color: text }]}>Weekly Insight</Text>
+            <Text style={styles.insightBody}>
+              Best bet: {weeklyInsight.crossingName} on {weeklyInsight.bestDay} ({weeklyInsight.bestSlot}) around {weeklyInsight.avgWait} min.
+            </Text>
+          </View>
+        )}
+
         {/* Widget Preview */}
-        {favorites.length > 0 && (() => {
+        {!uiPrefs.simpleMode && favorites.length > 0 && (() => {
           const c = crossings.find((x) => x.id === favorites[0]);
           const c2 = favorites.length >= 2 ? crossings.find((x) => x.id === favorites[1]) : null;
           return (
@@ -210,7 +235,7 @@ export default function HomeScreen({ navigation }) {
         })()}
 
         {/* Filter pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
+        {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
           {[
             { key: 'All', label: 'All' },
             { key: 'MX', label: '🇲🇽 Mexico' },
@@ -219,10 +244,10 @@ export default function HomeScreen({ navigation }) {
           ].map((f) => (
             <PillBtn key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} dark={dark} />
           ))}
-        </ScrollView>
+        </ScrollView>}
 
         {/* Sort + Open Now pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 8 }}>
+        {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 8 }}>
           <PillBtn
             label="🟢 Open Now"
             active={openOnly}
@@ -234,7 +259,7 @@ export default function HomeScreen({ navigation }) {
           <PillBtn label="Wait ↑" active={sort === 'waitAsc'}  onPress={() => setSort(sort === 'waitAsc'  ? 'default' : 'waitAsc')}  dark={dark} />
           <PillBtn label="Wait ↓" active={sort === 'waitDesc'} onPress={() => setSort(sort === 'waitDesc' ? 'default' : 'waitDesc')} dark={dark} />
           <PillBtn label="A–Z"    active={sort === 'name'}     onPress={() => setSort(sort === 'name'     ? 'default' : 'name')}     dark={dark} />
-        </ScrollView>
+        </ScrollView>}
 
         {/* Skeleton loading */}
         {isLoading && (
@@ -259,9 +284,23 @@ export default function HomeScreen({ navigation }) {
             {/* All / Other Crossings */}
             <SectionHeader title={favCrossings.length > 0 ? 'Other Crossings' : 'All Crossings'} dark={dark} />
             {otherCrossings.length === 0 && (
-              <Text style={{ color: '#8E8E93', textAlign: 'center', marginVertical: 20, fontSize: 14 }}>
-                No crossings match your filters.
-              </Text>
+              <View style={[styles.emptyStateCard, { backgroundColor: card }]}>
+                <Text style={{ color: text, fontSize: 16, fontWeight: '700' }}>No crossings found</Text>
+                <Text style={{ color: '#8E8E93', textAlign: 'center', marginTop: 6, fontSize: 14 }}>
+                  Try changing filters or clear search.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setFilter('All');
+                    setSort('default');
+                    setOpenOnly(false);
+                    setSearch('');
+                  }}
+                  style={[styles.emptyActionBtn, { backgroundColor: BLUE }]}
+                >
+                  <Text style={styles.emptyActionText}>Reset Filters</Text>
+                </TouchableOpacity>
+              </View>
             )}
             {otherCrossings.map((c) => (
               <CrossingCard key={c.id} crossing={c} isFav={false} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} distanceMi={nearMeDistances?.[c.id]} />
@@ -285,6 +324,14 @@ export default function HomeScreen({ navigation }) {
                 ))}
               </>
             )}
+
+            <View style={[styles.snapshotCard, { backgroundColor: card }]}> 
+              <Text style={[styles.snapshotTitle, { color: text }]}>Offline Snapshot</Text>
+              <Text style={styles.snapshotSub}>
+                Last live update: {lastFetchTime ? `${Math.max(0, Math.round((Date.now() - lastFetchTime) / 60000))} min ago` : 'Not yet fetched'}
+              </Text>
+              <Text style={styles.snapshotSub}>If service drops, cached waits remain visible.</Text>
+            </View>
           </>
         )}
       </ScrollView>
@@ -320,4 +367,17 @@ const styles = StyleSheet.create({
   miniInitials: { color: '#fff', fontSize: 12, fontWeight: '700' },
   miniReportName: { fontSize: 15, fontWeight: '600' },
   miniReportTime: { fontSize: 13, color: '#8E8E93' },
+  helpTip: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  helpTipText: { fontSize: 14, fontWeight: '600' },
+  insightCard: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, padding: 14 },
+  insightTitle: { fontSize: 16, fontWeight: '800' },
+  insightBody: { marginTop: 4, fontSize: 14, color: '#8E8E93', lineHeight: 20 },
+  snapshotCard: { marginHorizontal: 16, marginTop: 12, marginBottom: 8, borderRadius: 12, padding: 14 },
+  snapshotTitle: { fontSize: 15, fontWeight: '800' },
+  snapshotSub: { marginTop: 4, fontSize: 13, color: '#8E8E93' },
+  advancedToggle: { marginTop: 10, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  advancedToggleText: { fontSize: 14, fontWeight: '700' },
+  emptyStateCard: { marginHorizontal: 16, marginVertical: 16, borderRadius: 12, padding: 16, alignItems: 'center' },
+  emptyActionBtn: { marginTop: 12, minHeight: 44, paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center' },
+  emptyActionText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

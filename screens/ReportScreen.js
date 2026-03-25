@@ -18,6 +18,8 @@ export default function ReportScreen({ route, navigation }) {
   const [lane, setLane] = useState('Standard');
   const [wait, setWait] = useState(20);
   const [note, setNote] = useState('');
+  const [atCrossingNow, setAtCrossingNow] = useState(null);
+  const [exactWait, setExactWait] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -32,6 +34,10 @@ export default function ReportScreen({ route, navigation }) {
 
   const handleSubmit = () => {
     if (!selectedCrossing) return;
+    if (atCrossingNow === null || exactWait === null) {
+      setSubmitError('Please answer the two quick quality questions first.');
+      return;
+    }
     const result = addReport({
       crossingId: selectedCrossing.id,
       crossingName: selectedCrossing.name,
@@ -40,6 +46,10 @@ export default function ReportScreen({ route, navigation }) {
       lane,
       wait,
       note: note.trim(),
+      quality: {
+        atCrossingNow,
+        exactWait,
+      },
     });
     if (!result?.ok) {
       setSubmitError(result?.error || 'Unable to submit report right now.');
@@ -173,6 +183,20 @@ export default function ReportScreen({ route, navigation }) {
               <Text style={{ fontSize: 12, color: sub, textAlign: 'right', marginTop: 4 }}>{note.length}/200</Text>
             </View>
 
+            <SectionHeader title="Quick Quality Check" dark={dark} />
+            <View style={[styles.waitSection, { backgroundColor: card, marginTop: 0 }]}> 
+              <Text style={[styles.qualityQ, { color: text }]}>Are you currently at this crossing?</Text>
+              <View style={styles.qualityRow}>
+                <PillBtn label="Yes" active={atCrossingNow === true} onPress={() => setAtCrossingNow(true)} dark={dark} />
+                <PillBtn label="No" active={atCrossingNow === false} onPress={() => setAtCrossingNow(false)} dark={dark} />
+              </View>
+              <Text style={[styles.qualityQ, { color: text, marginTop: 12 }]}>Is this exact or estimated?</Text>
+              <View style={styles.qualityRow}>
+                <PillBtn label="Exact" active={exactWait === true} onPress={() => setExactWait(true)} dark={dark} />
+                <PillBtn label="Estimated" active={exactWait === false} onPress={() => setExactWait(false)} dark={dark} />
+              </View>
+            </View>
+
             {/* Submit */}
             {!!submitError && (
               <Text style={{ color: '#FF453A', marginHorizontal: 16, marginTop: 8, fontSize: 13 }}>{submitError}</Text>
@@ -206,12 +230,14 @@ const styles = StyleSheet.create({
   waitChip: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
   waitChipText: { fontSize: 13, fontWeight: '600' },
   noteInput: { borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1, minHeight: 90, textAlignVertical: 'top' },
-  submitBtn: { padding: 17, alignItems: 'center', borderRadius: 14 },
+  submitBtn: { padding: 17, minHeight: 56, justifyContent: 'center', alignItems: 'center', borderRadius: 14 },
   submitText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   successIcon: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(48,209,88,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   successTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center' },
   doneBtn: { width: '100%', borderRadius: 14, overflow: 'hidden' },
-  doneBtnInner: { padding: 17, alignItems: 'center' },
+  doneBtnInner: { padding: 17, minHeight: 56, justifyContent: 'center', alignItems: 'center' },
   doneBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  qualityQ: { fontSize: 15, fontWeight: '700' },
+  qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
 });

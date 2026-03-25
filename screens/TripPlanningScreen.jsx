@@ -13,7 +13,7 @@ const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINS = ['00', '15', '30', '45'];
 
 export default function TripPlanningScreen({ navigation }) {
-  const { crossings, dark } = useApp();
+  const { crossings, dark, savedTripTemplates, saveTripTemplate, deleteTripTemplate } = useApp();
   const c = colors(dark);
 
   const [selectedId, setSelectedId] = useState(null);
@@ -59,6 +59,24 @@ export default function TripPlanningScreen({ navigation }) {
     setNotifScheduled(false);
   };
 
+  const laneType = laneFromCrossing(crossing);
+
+  function laneFromCrossing(selCrossing) {
+    if (!selCrossing) return 'standard';
+    if ((selCrossing.sentriWait ?? 999) < selCrossing.wait) return 'sentri';
+    return 'standard';
+  }
+
+  const loadTemplate = (tpl) => {
+    setSelectedId(tpl.crossingId);
+    const [hm, ap] = (tpl.arrival || '9:00 AM').split(' ');
+    const [h, m] = hm.split(':');
+    setArrHour(h || '9');
+    setArrMin(m || '00');
+    setArrAmPm(ap || 'AM');
+    setNotifScheduled(false);
+  };
+
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: c.bg }]}>
       <View style={[styles.navBar, {
@@ -74,6 +92,23 @@ export default function TripPlanningScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Crossing picker */}
+        {savedTripTemplates.length > 0 && (
+          <>
+            <SectionHeader title="Saved Trips" dark={dark} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+              {savedTripTemplates.map((tpl) => (
+                <TouchableOpacity key={tpl.id} onPress={() => loadTemplate(tpl)} style={[styles.crossingChip, { backgroundColor: c.card, borderWidth: 1, borderColor: c.divider, minWidth: 160 }]}> 
+                  <Text style={[styles.chipText, { color: c.text }]} numberOfLines={1}>{tpl.name}</Text>
+                  <Text style={{ fontSize: 11, color: c.subtext, marginTop: 2 }}>{tpl.arrival}</Text>
+                  <TouchableOpacity onPress={() => deleteTripTemplate(tpl.id)} style={{ marginTop: 6 }}>
+                    <Text style={{ color: '#FF453A', fontSize: 11, fontWeight: '700' }}>Delete</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
         <SectionHeader title="Select Crossing" dark={dark} />
         <ScrollView
           horizontal
@@ -172,6 +207,21 @@ export default function TripPlanningScreen({ navigation }) {
                 📊 View Full Details for {crossing.name}
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                saveTripTemplate({
+                  name: `${crossing.name} Trip`,
+                  crossingId: crossing.id,
+                  laneType,
+                  threshold: crossing.wait,
+                  arrival: `${arrHour}:${arrMin} ${arrAmPm}`,
+                });
+              }}
+              style={[styles.secondaryBtn, { backgroundColor: c.card, marginTop: 10 }]}
+            >
+              <Text style={[styles.secondaryBtnText, { color: GREEN }]}>💾 Save As Trip Template</Text>
+            </TouchableOpacity>
           </>
         ) : (
           <View style={styles.emptyBlock}>
@@ -208,7 +258,7 @@ const styles = StyleSheet.create({
   notifBtn: { padding: 16, alignItems: 'center', borderRadius: 14 },
   notifBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center' },
   secondaryBtn: {
-    marginHorizontal: 16, borderRadius: 14, padding: 14, alignItems: 'center',
+    marginHorizontal: 16, borderRadius: 14, padding: 14, minHeight: 52, justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   secondaryBtnText: { fontSize: 15, fontWeight: '600' },

@@ -5,8 +5,10 @@ import { waitColor, BLUE, GREEN, ORANGE, RED, getTimeUntilClose } from '../data'
 
 export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, distanceMi }) {
   const trendIcon = crossing.trend === 'up' ? '↑' : crossing.trend === 'down' ? '↓' : '→';
+  const trendWord = crossing.trend === 'up' ? 'Rising' : crossing.trend === 'down' ? 'Dropping' : 'Steady';
   const trendColor = crossing.trend === 'up' ? RED : crossing.trend === 'down' ? GREEN : '#8E8E93';
   const stale = crossing.dataAge > 8;
+  const confidence = crossing.dataAge <= 4 ? 'High' : crossing.dataAge <= 10 ? 'Medium' : 'Low';
   const card = dark ? '#2C2C2E' : '#FFFFFF';
   const text = dark ? '#FFFFFF' : '#000000';
 
@@ -32,6 +34,7 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: text }]} numberOfLines={1}>{crossing.name}</Text>
             <Text style={{ fontSize: 14, fontWeight: '700', color: trendColor, marginLeft: 4 }}>{trendIcon}</Text>
+            <Text style={{ fontSize: 12, color: trendColor, fontWeight: '700' }}>{trendWord}</Text>
             {!crossing.is24h && (
               <View style={styles.limitedBadge}>
                 <Text style={styles.limitedText}>Limited</Text>
@@ -39,7 +42,7 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             )}
           </View>
           <Text style={styles.subtitle} numberOfLines={1}>
-            {crossing.city} · {crossing.country}
+            {crossing.city}
             {crossing.driveMin > 0 ? ` · ${crossing.driveMin}m drive` : ''}
             {distanceMi != null ? ` · ${distanceMi < 10 ? distanceMi.toFixed(1) : Math.round(distanceMi)} mi` : ''}
           </Text>
@@ -58,6 +61,11 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             <View style={[styles.chip, { backgroundColor: stale ? 'rgba(255,159,10,0.15)' : (dark ? '#3A3A3C' : '#F2F2F7') }]}>
               <Text style={[styles.chipLabel, { color: stale ? ORANGE : (dark ? '#aaa' : '#555') }]}>
                 {crossing.dataAge}m ago
+              </Text>
+            </View>
+            <View style={[styles.chip, { backgroundColor: confidence === 'High' ? 'rgba(48,209,88,0.15)' : confidence === 'Medium' ? 'rgba(255,159,10,0.15)' : 'rgba(255,69,58,0.15)' }]}>
+              <Text style={[styles.chipLabel, { color: confidence === 'High' ? GREEN : confidence === 'Medium' ? ORANGE : RED, fontWeight: '700' }]}>
+                Confidence: {confidence}
               </Text>
             </View>
             {closingSoon && (
