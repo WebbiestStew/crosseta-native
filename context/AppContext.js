@@ -28,10 +28,23 @@ const KEYS = {
   checklist:        '@crosseta/checklist',        // { [crossingId]: { [itemId]: boolean } }
   weeklyNotifSent:  '@crosseta/weeklyNotifSent',  // { [crossingId]: ISO date string }
   cachedCrossings:  '@crosseta/cachedCrossings',  // last successful CBP payload merged with seeds
+  profile:          '@crosseta/profile',          // { displayName, initials }
+  reportMeta:       '@crosseta/reportMeta',       // { lastPostedByCrossing: { [id]: ts } }
+  quietHours:       '@crosseta/quietHours',       // { enabled, start, end }
+  analytics:        '@crosseta/analytics',        // local event log
+  adminMode:        '@crosseta/adminMode',        // lightweight local moderator mode
+  accessibility:    '@crosseta/accessibility',    // { fontSizeMultiplier: 1.0, highContrast: false }
 };
 
 // Normalize a string for fuzzy CBP name matching
 const normName = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+
+const getInitials = (name = 'You') => {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return 'YO';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+};
 
 const AppContext = createContext(null);
 
@@ -58,6 +71,12 @@ export function AppProvider({ children }) {
   const [checklist, setChecklist] = useState({});
   /** weeklyNotifSent: tracks the last ISO date we sent a weekly best-time alert per crossing */
   const [weeklyNotifSent, setWeeklyNotifSent] = useState({});
+  const [profile, setProfile] = useState({ displayName: 'You', initials: 'YO' });
+  const [reportMeta, setReportMeta] = useState({ lastPostedByCrossing: {} });
+  const [quietHours, setQuietHours] = useState({ enabled: false, start: 22, end: 7 });
+  const [analytics, setAnalytics] = useState([]);
+  const [adminMode, setAdminMode] = useState(false);
+  const [accessibility, setAccessibilityState] = useState({ fontSizeMultiplier: 1.0, highContrast: false });
   /** lastFetchTime: unix ms of the most recent successful CBP fetch */
   const [lastFetchTime, setLastFetchTime] = useState(null);
   const notifCooldown = useRef({});
@@ -88,6 +107,11 @@ export function AppProvider({ children }) {
         if (stored[KEYS.lowAlerts])                     setLowAlerts(stored[KEYS.lowAlerts]);
         if (stored[KEYS.checklist])                     setChecklist(stored[KEYS.checklist]);
         if (stored[KEYS.weeklyNotifSent])               setWeeklyNotifSent(stored[KEYS.weeklyNotifSent]);
+        if (stored[KEYS.profile])                       setProfile(stored[KEYS.profile]);
+        if (stored[KEYS.reportMeta])                    setReportMeta(stored[KEYS.reportMeta]);
+        if (stored[KEYS.quietHours])                    setQuietHours(stored[KEYS.quietHours]);
+        if (stored[KEYS.analytics])                     setAnalytics(stored[KEYS.analytics]);
+        if (stored[KEYS.adminMode] !== undefined)       setAdminMode(stored[KEYS.adminMode]);
         // Restore cached crossing wait data so the list isn't all-zero on first open
         if (stored[KEYS.cachedCrossings])               setCrossings(stored[KEYS.cachedCrossings]);
       } catch { /* fall back to defaults silently */ }
@@ -112,6 +136,27 @@ export function AppProvider({ children }) {
   useEffect(() => { if (hydrated) save(KEYS.lowAlerts,       lowAlerts);       }, [lowAlerts,       hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.checklist,       checklist);       }, [checklist,       hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.weeklyNotifSent, weeklyNotifSent); }, [weeklyNotifSent, hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.profile,         profile);         }, [profile,         hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.reportMeta,      reportMeta);      }, [reportMeta,      hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.quietHours,      quietHours);      }, [quietHours,      hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.analytics,       analytics);       }, [analytics,       hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.adminMode,       adminMode);       }, [adminMode,       hydrated]);
+
+  const trackEvent = (name, payload = {}) => {
+    setAnalytics((prev) => {
+      const next = [{ id: `e_${Date.now()}`, name, payload, ts: new Date().toISOString() }, ...prev];
+      return next.slice(0, 500);
+    });
+  };
+
+  const isInQuietHours = (now = new Date()) => {
+    if (!quietHours.enabled) return false;
+    const h = now.getHours();
+    const { start, end } = quietHours;
+    if (start === end) return true;
+    if (start < end) return h >= start && h < end;
+    return h >= start || h < end;
+  };
 
   // ─── Request notification permissions on mount ───────────────────────
   useEffect(() => {
@@ -129,7 +174,7 @@ export function AppProvider({ children }) {
       const withinCooldown = now - (notifCooldown.current[cooldownKey] ?? 0) < 15 * 60 * 1000;
 
       // ── HIGH alert: wait exceeds threshold ──
-      if (c.wait > threshold && !withinCooldown) {
+      if (c.wait > threshold && !withinCooldown && !isInQuietHours()) {
         notifCooldown.current[cooldownKey] = now;
         Notifications.scheduleNotificationAsync({
           content: {
@@ -150,7 +195,8 @@ export function AppProvider({ children }) {
         prevWait !== undefined &&
         prevWait > threshold &&
         c.wait <= threshold &&
-        !dropCooled
+        !dropCooled &&
+        !isInQuietHours()
       ) {
         notifCooldown.current[dropKey] = now;
         Notifications.scheduleNotificationAsync({
@@ -230,6 +276,7 @@ export function AppProvider({ children }) {
       if (!allSlots.length) return;
       const best = allSlots.reduce((a, b) => (b.wait < a.wait ? b : a));
 
+      if (isInQuietHours()) return;
       Notifications.scheduleNotificationAsync({
         content: {
           title: `${c.flag} Heading to ${c.name} this week?`,
@@ -245,25 +292,95 @@ export function AppProvider({ children }) {
 
   // ─── Actions ─────────────────────────────────────────────────────────
   const toggleStar = (id) =>
-    setFavorites((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setFavorites((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      trackEvent('toggle_favorite', { crossingId: id, nowFavorite: next.includes(id) });
+      return next;
+    });
 
-  const addReport = (report) => setReports((prev) => [{
-    id: `r_${Date.now()}`,
-    author: 'You',
-    initials: 'YO',
-    avatarColor: BLUE,
-    upvotes: 0,
-    downvotes: 0,
-    time: 0,
-    ts: new Date().toISOString(),
-    ...report,
-  }, ...prev]);
+  const addReport = (report) => {
+    const now = Date.now();
+    const cooldownMs = 10 * 60 * 1000;
+    const lastPostTs = reportMeta.lastPostedByCrossing?.[report.crossingId] ?? 0;
+    if (now - lastPostTs < cooldownMs) {
+      const minsLeft = Math.ceil((cooldownMs - (now - lastPostTs)) / 60000);
+      return { ok: false, error: `Please wait ${minsLeft} min before posting another report for this crossing.` };
+    }
+
+    const isDuplicate = reports.some((r) =>
+      r.crossingId === report.crossingId &&
+      r.lane === report.lane &&
+      Math.abs((r.wait ?? 0) - (report.wait ?? 0)) <= 5 &&
+      (now - new Date(r.ts).getTime()) < 15 * 60 * 1000
+    );
+    if (isDuplicate) {
+      return { ok: false, error: 'A very similar report was just posted. Upvote it instead.' };
+    }
+
+    const created = {
+      id: `r_${Date.now()}`,
+      author: profile.displayName || 'You',
+      initials: profile.initials || 'YO',
+      avatarColor: BLUE,
+      upvotes: 0,
+      downvotes: 0,
+      flags: 0,
+      hidden: false,
+      trustScore: report.note?.trim() ? 68 : 60,
+      time: 0,
+      ts: new Date().toISOString(),
+      ...report,
+    };
+
+    setReports((prev) => [created, ...prev]);
+    setReportMeta((prev) => ({
+      ...prev,
+      lastPostedByCrossing: {
+        ...(prev.lastPostedByCrossing ?? {}),
+        [report.crossingId]: now,
+      },
+    }));
+    trackEvent('submit_report', { crossingId: report.crossingId, lane: report.lane, wait: report.wait });
+    return { ok: true, id: created.id };
+  };
 
   const vote = (reportId, dir) =>
-    setVotes((prev) => ({ ...prev, [reportId]: prev[reportId] === dir ? null : dir }));
+    setVotes((prev) => {
+      const nextVal = prev[reportId] === dir ? null : dir;
+      trackEvent('vote_report', { reportId, vote: nextVal });
+      return { ...prev, [reportId]: nextVal };
+    });
 
   const setFeedback = (reportId, val) =>
-    setFeedbackDone((prev) => ({ ...prev, [reportId]: val }));
+    {
+      setFeedbackDone((prev) => ({ ...prev, [reportId]: val }));
+      setReports((prev) => prev.map((r) =>
+        r.id === reportId
+          ? { ...r, trustScore: Math.max(0, Math.min(100, (r.trustScore ?? 60) + (val === 'yes' ? 5 : -8))) }
+          : r
+      ));
+      trackEvent('report_feedback', { reportId, value: val });
+    };
+
+  const flagReport = (reportId) => {
+    setReports((prev) => prev.map((r) => {
+      if (r.id !== reportId) return r;
+      const flags = (r.flags ?? 0) + 1;
+      return {
+        ...r,
+        flags,
+        hidden: flags >= 3,
+        trustScore: Math.max(0, (r.trustScore ?? 60) - 12),
+      };
+    }));
+    trackEvent('flag_report', { reportId });
+  };
+
+  const setDisplayName = (displayName) => {
+    const clean = displayName.trim().slice(0, 24) || 'You';
+    setProfile({ displayName: clean, initials: getInitials(clean) });
+    trackEvent('set_display_name', { length: clean.length });
+  };
 
   const toggleNotif = async (id) => {
     const willEnable = !notifSettings[id];
@@ -272,10 +389,14 @@ export function AppProvider({ children }) {
       if (status !== 'granted') return;
     }
     setNotifSettings((prev) => ({ ...prev, [id]: !prev[id] }));
+    trackEvent('toggle_alert', { crossingId: id, enabled: willEnable });
   };
 
   const setThreshold = (id, val) =>
-    setThresholds((prev) => ({ ...prev, [id]: val }));
+    {
+      setThresholds((prev) => ({ ...prev, [id]: val }));
+      trackEvent('set_threshold', { crossingId: id, threshold: val });
+    };
 
   const clearTrips = () => setTrips([]);
 
@@ -285,6 +406,7 @@ export function AppProvider({ children }) {
    * @param {'standard'|'sentri'|'ready'} laneType
    */
   const startTracking = (crossingId, laneType) => {
+    trackEvent('start_trip', { crossingId, laneType });
     setActiveCrossing({
       crossingId,
       laneType,
@@ -329,6 +451,7 @@ export function AppProvider({ children }) {
         };
 
         setCompletedTrips((pt) => [trip, ...pt]);
+        trackEvent('complete_trip', { crossingId: trip.crossingId, laneType: trip.laneType, actualWait: trip.actualWait });
 
         // ── Data contribution: fire-and-forget POST ───────────────────────
         // TODO: replace with real endpoint
@@ -353,6 +476,24 @@ export function AppProvider({ children }) {
       return null;
     });
   };
+
+  const restoreReport = (reportId) => {
+    setReports((prev) => prev.map((r) =>
+      r.id === reportId ? { ...r, hidden: false, flags: Math.max(0, (r.flags ?? 0) - 1), trustScore: Math.max(r.trustScore ?? 60, 45) } : r
+    ));
+    trackEvent('restore_report', { reportId });
+  };
+
+  const clearAnalytics = () => {
+    setAnalytics([]);
+  };
+
+  const getAnalyticsExport = () => JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    appVersion: '1.1.0',
+    eventCount: analytics.length,
+    events: analytics,
+  }, null, 2);
 
   const clearCompletedTrips = () => setCompletedTrips([]);
 
@@ -388,18 +529,42 @@ export function AppProvider({ children }) {
     setOnboarded(true);
   };
 
+  const setAccessibility = (val) => {
+    setAccessibilityState(val);
+    if (hydrated) AsyncStorage.setItem(KEYS.accessibility, JSON.stringify(val));
+  };
+
+  const setFontSizeMultiplier = (mult) => {
+    const clamped = Math.max(1.0, Math.min(1.5, mult));
+    const updated = { ...accessibility, fontSizeMultiplier: clamped };
+    setAccessibility(updated);
+  };
+
+  const setHighContrast = (val) => {
+    const updated = { ...accessibility, highContrast: val };
+    setAccessibility(updated);
+  };
+
   return (
     <AppContext.Provider value={{
       crossings, favorites, reports, trips, dark, haptics,
       notifSettings, thresholds, votes, feedbackDone, onboarded,
       setDark, setHaptics,
       toggleStar, addReport, vote, setFeedback,
+      flagReport,
+      restoreReport,
       toggleNotif, setThreshold, clearTrips, completeOnboarding,
       activeCrossing, completedTrips,
       startTracking, stopTracking, updateActiveCrossing, clearCompletedTrips,
       lowAlerts, toggleLowAlert,
       checklist, toggleChecklistItem, resetChecklist,
       lastFetchTime, hydrated, fetchCBP: fetch_cbp,
+      profile, setDisplayName,
+      quietHours, setQuietHours,
+      analytics, trackEvent,
+      clearAnalytics, getAnalyticsExport,
+      adminMode, setAdminMode,
+      accessibility, setAccessibility, setFontSizeMultiplier, setHighContrast,
     }}>
       {children}
     </AppContext.Provider>

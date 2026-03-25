@@ -16,7 +16,7 @@ const MINS = ['00', '15', '30', '45'];
 
 export default function DetailScreen({ route, navigation }) {
   const { crossing } = route.params;
-  const { favorites, toggleStar, reports, votes, feedbackDone, vote, setFeedback, dark, completedTrips } = useApp();
+  const { favorites, toggleStar, reports, votes, feedbackDone, vote, setFeedback, flagReport, dark, completedTrips } = useApp();
   const isFav = favorites.includes(crossing.id);
   const [arrHour, setArrHour] = useState('9');
   const [arrMin, setArrMin] = useState('00');
@@ -46,7 +46,7 @@ export default function DetailScreen({ route, navigation }) {
     return { bg: '#4A1A1A', txt: RED };
   };
 
-  const crossingReports = reports.filter((r) => r.crossingId === crossing.id);
+  const crossingReports = reports.filter((r) => r.crossingId === crossing.id && !r.hidden);
 
   // Historical accuracy chart data — up to 10 most recent tracked trips for this crossing
   const myTrips = completedTrips
@@ -381,7 +381,7 @@ export default function DetailScreen({ route, navigation }) {
           <>
             <SectionHeader title="Community Reports" dark={dark} />
             {crossingReports.map((r) => (
-              <ReportCard key={r.id} report={r} allReports={reports} myVote={votes[r.id]} feedbackDone={feedbackDone[r.id]} onVote={vote} onFeedback={setFeedback} dark={dark} />
+              <ReportCard key={r.id} report={r} allReports={crossingReports} myVote={votes[r.id]} feedbackDone={feedbackDone[r.id]} onVote={vote} onFeedback={setFeedback} onFlag={flagReport} dark={dark} />
             ))}
           </>
         )}

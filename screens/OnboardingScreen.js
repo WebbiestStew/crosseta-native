@@ -8,11 +8,10 @@ import { PillBtn, WaitPill } from '../components/UI';
 import { useApp } from '../context/AppContext';
 
 const FEATURES = [
-  { icon: '⏱', title: 'Live Wait Times', desc: 'CBP-sourced data refreshed every 5 minutes' },
-  { icon: '🔮', title: 'Smart Predictions', desc: '+1h and +3h lane-specific forecasts with confidence scores' },
-  { icon: '📅', title: 'Leave-By Calculator', desc: "Pick your arrival time, we'll tell you when to leave" },
-  { icon: '🔥', title: 'Weekly Heatmap', desc: 'See patterns across all days and time slots' },
-  { icon: '👥', title: 'Community Reports', desc: 'Real reports from real travelers, verified by votes' },
+  { icon: '⏱', title: 'See Wait Times', desc: 'Real updates every 5 minutes' },
+  { icon: '🔮', title: 'Plan Your Trip', desc: 'Know when to leave and when waits are better' },
+  { icon: '🗓', title: 'Best Times', desc: 'Find the fastest crossing days and times' },
+  { icon: '👥', title: 'Community Tips', desc: 'See reports from other travelers' },
 ];
 
 const TIMES = ['Early Morning (4–7am)', 'Morning (7–10am)', 'Midday (10am–1pm)', 'Afternoon (1–5pm)', 'Evening (5–9pm)', 'I vary'];
@@ -44,19 +43,19 @@ export default function OnboardingScreen({ onComplete }) {
             <View key={i} style={[styles.dot, { width: i === 0 ? 20 : 8, backgroundColor: i === 0 ? BLUE : '#C7C7CC' }]} />
           ))}
         </View>
-        <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <Text style={{ fontSize: 60, marginBottom: 12 }}>🛂</Text>
-          <Text style={[styles.heroTitle, { color: text }]}>CrossETA</Text>
-          <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 4 }}>Real-time border crossing intelligence</Text>
+        <View style={{ alignItems: 'center', marginBottom: 40 }}>
+          <Text style={{ fontSize: 72, marginBottom: 16 }}>🛂</Text>
+          <Text style={[styles.heroTitle, { color: text, fontSize: 44 }]}>CrossETA</Text>
+          <Text style={{ fontSize: 19, color: '#8E8E93', marginTop: 8, fontWeight: '500' }}>Border crossing wait times</Text>
         </View>
         {FEATURES.map((f) => (
           <View key={f.icon} style={styles.featureRow}>
             <View style={[styles.featureIcon, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7' }]}>
-              <Text style={{ fontSize: 24 }}>{f.icon}</Text>
+              <Text style={{ fontSize: 32 }}>{f.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.featureTitle, { color: text }]}>{f.title}</Text>
-              <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 2 }}>{f.desc}</Text>
+              <Text style={[styles.featureTitle, { color: text, fontSize: 18, fontWeight: '700' }]}>{f.title}</Text>
+              <Text style={{ fontSize: 15, color: '#8E8E93', marginTop: 4, fontWeight: '500' }}>{f.desc}</Text>
             </View>
           </View>
         ))}
@@ -78,8 +77,8 @@ export default function OnboardingScreen({ onComplete }) {
             <View key={i} style={[styles.dot, { width: i === 1 ? 20 : 8, backgroundColor: i === 1 ? BLUE : '#C7C7CC' }]} />
           ))}
         </View>
-        <Text style={[styles.stepTitle, { color: text }]}>Pick Your Crossings</Text>
-        <Text style={{ fontSize: 14, color: '#8E8E93', marginTop: 4 }}>Select at least one crossing to save.</Text>
+        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>Choose Crossings</Text>
+        <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 6, fontWeight: '500' }}>Pick at least one to get started</Text>
       </View>
       {/* Filter pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 4 }} contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}>
@@ -133,9 +132,9 @@ export default function OnboardingScreen({ onComplete }) {
             <View key={i} style={[styles.dot, { width: i === 2 ? 20 : 8, backgroundColor: i === 2 ? BLUE : '#C7C7CC' }]} />
           ))}
         </View>
-        <Text style={[styles.stepTitle, { color: text }]}>When do you usually cross?</Text>
-        <Text style={{ fontSize: 14, color: '#8E8E93', marginTop: 4, marginBottom: 24 }}>
-          We'll tune predictions to your typical crossing time.
+        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>When do you cross?</Text>
+        <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 6, fontWeight: '500', marginBottom: 28 }}>
+          We'll customize for your schedule
         </Text>
         {TIMES.map((t) => (
           <TouchableOpacity

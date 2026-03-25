@@ -18,8 +18,10 @@ export const PillBtn = ({ label, active, onPress, dark, activeColor }) => (
   <TouchableOpacity
     onPress={onPress}
     style={[styles.pillBtn, { backgroundColor: active ? (activeColor ?? BLUE) : (dark ? '#3A3A3C' : '#E5E5EA') }]}
-    activeOpacity={0.7}
-  >
+    activeOpacity={0.7}    accessible={true}
+    accessibilityLabel={label}
+    accessibilityRole="button"
+    accessibilityState={{ selected: active }}  >
     <Text style={[styles.pillBtnText, { color: active ? '#fff' : (dark ? '#fff' : '#000') }]}>
       {label}
     </Text>
@@ -132,16 +134,16 @@ export const Card = ({ children, style, dark }) => (
 );
 
 const styles = StyleSheet.create({
-  pill: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, alignItems: 'center', justifyContent: 'center' },
-  pillSmall: { paddingHorizontal: 7, paddingVertical: 2 },
-  pillText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  pillTextSmall: { fontSize: 11 },
-  pillBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
-  pillBtnText: { fontSize: 13, fontWeight: '600' },
-  toggle: { width: 51, height: 31, borderRadius: 16, justifyContent: 'center' },
-  toggleThumb: { width: 27, height: 27, borderRadius: 13.5, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 3 },
-  sectionHeader: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6 },
+  pill: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
+  pillSmall: { paddingHorizontal: 10, paddingVertical: 4 },
+  pillText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  pillTextSmall: { fontSize: 13 },
+  pillBtn: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 20, minHeight: 50 },
+  pillBtnText: { fontSize: 16, fontWeight: '600' },
+  toggle: { width: 60, height: 40, borderRadius: 20, justifyContent: 'center' },
+  toggleThumb: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3, elevation: 3 },
+  sectionHeader: { fontSize: 15, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 16, paddingTop: 24, paddingBottom: 10 },
   dragHandleContainer: { alignItems: 'center', paddingTop: 10, paddingBottom: 4 },
-  dragHandle: { width: 36, height: 4, borderRadius: 2 },
-  card: { borderRadius: 18, marginHorizontal: 16, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  dragHandle: { width: 40, height: 5, borderRadius: 2.5 },
+  card: { borderRadius: 18, marginHorizontal: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
 });

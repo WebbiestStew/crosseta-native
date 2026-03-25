@@ -103,6 +103,7 @@ export const colors = (dark) => ({
 // ─── CROSSING DATA ────────────────────────────────────────────────────────────
 const MEXICO_BASE = [
   { id: 'ANDRADE', name: 'Andrade', city: 'Andrade, Texas', country: 'Andrade', region: 'TX', is24h: false, hours: '6am–10pm', driveMin: 0 },
+  { id: 'ANZALDUAS', name: 'Anzalduas International Bridge', city: 'Mission, Texas', country: 'Reynosa, Tamaulipas', region: 'TX', is24h: false, hours: '6am–10pm', driveMin: 0 },
   { id: 'BRIDGE_OF_THE_AMERICAS_PORT_OF_ENTRY', name: 'Bridge of the Americas Port of Entry', city: 'Bridge of the Americas Port of Entry, Texas', country: 'Bridge of the Americas Port of Entry', region: 'TX', is24h: true, driveMin: 0 },
   { id: 'BROWNSVILLE', name: 'Brownsville', city: 'Brownsville, Texas', country: 'Brownsville', region: 'TX', is24h: true, driveMin: 0 },
   { id: 'CALEXICO', name: 'Calexico', city: 'Calexico, California', country: 'Calexico', region: 'CA', is24h: true, driveMin: 0 },
@@ -250,6 +251,7 @@ export const CANADA_BASE_LIST = CANADA_BASE;
 export const CROSSING_COORDS = {
   // Mexico crossings (30 ports)
   ANDRADE:                              { latitude: 25.8871, longitude: -97.1886 },
+  ANZALDUAS:                            { latitude: 26.0694, longitude: -98.3002 },
   BRIDGE_OF_THE_AMERICAS_PORT_OF_ENTRY: { latitude: 31.7613, longitude: -106.4959 },
   BROWNSVILLE:                          { latitude: 25.9119, longitude: -97.4875 },
   CALEXICO:                             { latitude: 32.6721, longitude: -115.4898 },

@@ -1,15 +1,22 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Linking,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Linking, TextInput, Share,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { BLUE, GREEN } from '../data';
 import { Toggle, SectionHeader } from '../components/UI';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 export default function SettingsScreen() {
-  const { dark, haptics, setDark, setHaptics } = useApp();
+  const {
+    dark, haptics, setDark, setHaptics,
+    profile, setDisplayName,
+    quietHours, setQuietHours,
+    analytics, clearAnalytics, getAnalyticsExport,
+    adminMode, setAdminMode,
+    accessibility, setFontSizeMultiplier, setHighContrast,
+  } = useApp();
 
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
   const card = dark ? '#2C2C2E' : '#fff';
@@ -27,6 +34,15 @@ export default function SettingsScreen() {
     </TouchableOpacity>
   );
 
+  const exportAnalytics = async () => {
+    try {
+      await Share.share({
+        title: 'CrossETA Analytics Export',
+        message: getAnalyticsExport(),
+      });
+    } catch (_) {}
+  };
+
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <View style={[styles.header, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
@@ -38,7 +54,62 @@ export default function SettingsScreen() {
         <SectionHeader title="Appearance" dark={dark} />
         <View style={[styles.card, { backgroundColor: card }]}>
           <Row label="Dark Mode" right={<Toggle value={dark} onValueChange={setDark} />} />
-          <Row label="Haptic Feedback" sub="Vibrations on button taps" right={<Toggle value={haptics} onValueChange={setHaptics} />} last />
+          <Row label="Haptic Feedback" sub="Vibrations on button taps" right={<Toggle value={haptics} onValueChange={setHaptics} />} />
+        </View>
+
+        {/* Accessibility */}
+        <SectionHeader title="Accessibility" dark={dark} />
+        <View style={[styles.card, { backgroundColor: card }]}>
+          <View style={[styles.row, { borderBottomWidth: 0.5, borderBottomColor: separator, flexDirection: 'column', alignItems: 'flex-start', paddingVertical: 16 }]}>
+            <Text style={[styles.rowLabel, { color: text }]}>Text Size</Text>
+            <Text style={styles.rowSub}>Adjust font sizes for readability</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', marginTop: 12, justifyContent: 'space-between', paddingHorizontal: 8 }}>
+              <TouchableOpacity onPress={() => setFontSizeMultiplier(accessibility.fontSizeMultiplier - 0.1)} style={[styles.sizeBtn, { backgroundColor: dark ? '#3A3A3C' : '#E5E5EA' }]}>
+                <Text style={{ fontSize: 18, color: text }}>A−</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1, height: 8, backgroundColor: BLUE, marginHorizontal: 12, borderRadius: 4, opacity: 0.3 }} />
+              <TouchableOpacity onPress={() => setFontSizeMultiplier(accessibility.fontSizeMultiplier + 0.1)} style={[styles.sizeBtn, { backgroundColor: dark ? '#3A3A3C' : '#E5E5EA' }]}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: text }}>A+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.rowSub, { marginTop: 10, alignSelf: 'center' }]}>{Math.round(accessibility.fontSizeMultiplier * 100)}%</Text>
+          </View>
+          <Row
+            label="High Contrast Mode"
+            sub="Better color contrast for visibility"
+            right={<Toggle value={accessibility.highContrast} onValueChange={setHighContrast} />}
+            last
+          />
+        </View>
+
+        {/* Community */}
+        <SectionHeader title="Community" dark={dark} />
+        <View style={[styles.card, { backgroundColor: card }]}> 
+          <View style={[styles.row, { borderBottomWidth: 0.5, borderBottomColor: separator, alignItems: 'flex-start' }]}> 
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rowLabel, { color: text }]}>Display Name</Text>
+              <Text style={styles.rowSub}>Used on your community wait reports</Text>
+              <TextInput
+                value={profile.displayName}
+                onChangeText={setDisplayName}
+                maxLength={24}
+                placeholder="Your name"
+                placeholderTextColor="#8E8E93"
+                style={[styles.nameInput, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7', color: text }]}
+              />
+            </View>
+          </View>
+          <Row
+            label="Quiet Hours"
+            sub="Pause non-critical notifications overnight"
+            right={<Toggle value={quietHours.enabled} onValueChange={(v) => setQuietHours((p) => ({ ...p, enabled: v }))} />}
+          />
+          <Row
+            label="Quiet Window"
+            sub="Current: 10 PM – 7 AM"
+            right={<Text style={{ color: sub, fontSize: 14 }}>{quietHours.enabled ? 'Active' : 'Off'}</Text>}
+            last
+          />
         </View>
 
         {/* Data */}
@@ -47,6 +118,23 @@ export default function SettingsScreen() {
           <Row label="Data Source" sub="CBP Border Wait Times API" right={<View style={styles.liveDot}><Text style={styles.liveTxt}>● Live</Text></View>} />
           <Row label="Auto Refresh" sub="Updates every 5 minutes" right={<Text style={{ color: sub, fontSize: 14 }}>5 min</Text>} />
           <Row label="Cache Duration" sub="Fallback if API unavailable" right={<Text style={{ color: sub, fontSize: 14 }}>24h</Text>} last />
+        </View>
+
+        <SectionHeader title="Analytics" dark={dark} />
+        <View style={[styles.card, { backgroundColor: card }]}> 
+          <Row label="Events Tracked (local)" sub="Used to guide v1.1 product decisions" right={<Text style={{ color: sub, fontSize: 14 }}>{analytics.length}</Text>} />
+          <Row label="Export Analytics" sub="Share JSON snapshot" right={<Text style={{ color: BLUE, fontSize: 20 }}>›</Text>} onPress={exportAnalytics} />
+          <Row label="Clear Analytics" sub="Reset local event history" right={<Text style={{ color: '#FF453A', fontSize: 12, fontWeight: '700' }}>Clear</Text>} onPress={clearAnalytics} last />
+        </View>
+
+        <SectionHeader title="Moderation" dark={dark} />
+        <View style={[styles.card, { backgroundColor: card }]}> 
+          <Row
+            label="Admin Mode"
+            sub="Review and restore hidden reports in Community"
+            right={<Toggle value={adminMode} onValueChange={setAdminMode} />}
+            last
+          />
         </View>
 
         {/* Predictions */}
@@ -80,13 +168,21 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5 },
-  title: { fontSize: 28, fontWeight: '800' },
+  header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5 },
+  title: { fontSize: 32, fontWeight: '800' },
   card: { marginHorizontal: 16, borderRadius: 14, marginBottom: 4, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13, minHeight: 48 },
-  rowLabel: { fontSize: 15, fontWeight: '500' },
-  rowSub: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
-  liveDot: { backgroundColor: 'rgba(48,209,88,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  liveTxt: { color: '#30D158', fontSize: 12, fontWeight: '700' },
-  footer: { textAlign: 'center', fontSize: 12, color: '#8E8E93', marginTop: 24, lineHeight: 18, paddingHorizontal: 24 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, minHeight: 56 },
+  rowLabel: { fontSize: 17, fontWeight: '600' },
+  rowSub: { fontSize: 14, color: '#8E8E93', marginTop: 3 },
+  sizeBtn: { width: 48, height: 48, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  liveDot: { backgroundColor: 'rgba(48,209,88,0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  liveTxt: { color: '#30D158', fontSize: 14, fontWeight: '700' },
+  nameInput: {
+    marginTop: 12,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  footer: { textAlign: 'center', fontSize: 14, color: '#8E8E93', marginTop: 24, lineHeight: 20, paddingHorizontal: 24 },
 });

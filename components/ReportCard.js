@@ -14,7 +14,7 @@ function getVerifiedCount(allReports, report) {
   ).length;
 }
 
-export default function ReportCard({ report, allReports = [], myVote, feedbackDone, onVote, onFeedback, dark }) {
+export default function ReportCard({ report, allReports = [], myVote, feedbackDone, onVote, onFeedback, onFlag, dark }) {
   const card = dark ? '#2C2C2E' : '#fff';
   const text = dark ? '#fff' : '#000';
   const verifiedCount = getVerifiedCount(allReports, report);
@@ -37,6 +37,7 @@ export default function ReportCard({ report, allReports = [], myVote, feedbackDo
             </View>
           )}
           {report.note ? <Text style={[styles.note, { color: dark ? '#ccc' : '#333' }]}>{report.note}</Text> : null}
+          <Text style={styles.metaText}>Trust Score: {Math.max(0, Math.min(100, Math.round(report.trustScore ?? 60)))}%</Text>
           <View style={styles.actions}>
             <TouchableOpacity onPress={() => onVote(report.id, 'up')} style={styles.voteBtn}>
               <Text style={[styles.voteTxt, { color: myVote === 'up' ? GREEN : (dark ? '#aaa' : '#666') }]}>
@@ -62,6 +63,9 @@ export default function ReportCard({ report, allReports = [], myVote, feedbackDo
             ) : (
               <Text style={styles.metaText}>{feedbackDone === 'yes' ? '✓ Accurate' : '✗ Inaccurate'}</Text>
             )}
+            <TouchableOpacity onPress={() => onFlag?.(report.id)} style={styles.flagBtn}>
+              <Text style={styles.flagTxt}>🚩 Flag</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -84,6 +88,8 @@ const styles = StyleSheet.create({
   feedbackRow: { flexDirection: 'row', alignItems: 'center' },
   feedbackBtn: { fontSize: 12, fontWeight: '600' },
   metaText: { fontSize: 12, color: '#8E8E93' },
+  flagBtn: { marginLeft: 8 },
+  flagTxt: { fontSize: 12, color: ORANGE, fontWeight: '700' },
   verifiedBadge: {
     alignSelf: 'flex-start', backgroundColor: 'rgba(48,209,88,0.15)',
     borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5,

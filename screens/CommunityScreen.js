@@ -11,7 +11,7 @@ const FILTERS = ['All', '🇲🇽 Mexico', '🇨🇦 Canada'];
 const SORT_OPTIONS = ['Newest', 'Most Helpful', 'Crossing'];
 
 export default function CommunityScreen({ navigation }) {
-  const { dark, reports, votes, feedbackDone, vote, setFeedback, crossings } = useApp();
+  const { dark, reports, votes, feedbackDone, vote, setFeedback, flagReport, restoreReport, adminMode } = useApp();
   const [region, setRegion] = useState('All');
   const [sort, setSort] = useState('Newest');
 
@@ -20,7 +20,10 @@ export default function CommunityScreen({ navigation }) {
   const sub = '#8E8E93';
   const card = dark ? '#2C2C2E' : '#fff';
 
-  const filtered = reports.filter((r) => {
+  const visibleReports = reports.filter((r) => !r.hidden);
+  const hiddenReports = reports.filter((r) => r.hidden);
+
+  const filtered = visibleReports.filter((r) => {
     if (region === '🇲🇽 Mexico') return r.border === 'MX';
     if (region === '🇨🇦 Canada') return r.border === 'CA';
     return true;
@@ -87,14 +90,33 @@ export default function CommunityScreen({ navigation }) {
             <ReportCard
               key={r.id}
               report={r}
-              allReports={reports}
+              allReports={visibleReports}
               myVote={votes[r.id]}
               feedbackDone={feedbackDone[r.id]}
               onVote={vote}
               onFeedback={setFeedback}
+              onFlag={flagReport}
               dark={dark}
             />
           ))
+        )}
+
+        {adminMode && hiddenReports.length > 0 && (
+          <>
+            <SectionHeader title={`Hidden Reports (${hiddenReports.length})`} dark={dark} />
+            {hiddenReports.map((r) => (
+              <View key={r.id} style={[styles.hiddenCard, { backgroundColor: card }]}> 
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.hiddenTitle, { color: text }]}>{r.crossingName} · {r.lane}</Text>
+                  <Text style={styles.hiddenMeta}>Flags: {r.flags ?? 0} · Trust: {Math.round(r.trustScore ?? 0)}%</Text>
+                  {!!r.note && <Text style={[styles.hiddenNote, { color: sub }]} numberOfLines={2}>{r.note}</Text>}
+                </View>
+                <TouchableOpacity onPress={() => restoreReport(r.id)} style={styles.restoreBtn}>
+                  <Text style={styles.restoreTxt}>Restore</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -113,4 +135,18 @@ const styles = StyleSheet.create({
   statLbl: { fontSize: 11, color: '#8E8E93', marginTop: 2 },
   statDivider: { width: 1, height: 30 },
   emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 12 },
+  hiddenCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  hiddenTitle: { fontSize: 14, fontWeight: '700' },
+  hiddenMeta: { fontSize: 12, color: '#8E8E93', marginTop: 2 },
+  hiddenNote: { fontSize: 12, marginTop: 4 },
+  restoreBtn: { backgroundColor: '#34C75922', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  restoreTxt: { color: '#30D158', fontWeight: '700', fontSize: 12 },
 });

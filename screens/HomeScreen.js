@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, SafeAreaView, RefreshControl,
@@ -12,7 +12,7 @@ import CrossingCard from '../components/CrossingCard';
 import SkeletonCard from '../components/SkeletonCard';
 
 export default function HomeScreen({ navigation }) {
-  const { crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP } = useApp();
+  const { crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP, trackEvent } = useApp();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [sort, setSort] = useState('default');   // 'default' | 'waitAsc' | 'waitDesc' | 'name' | 'nearMe'
@@ -99,6 +99,10 @@ export default function HomeScreen({ navigation }) {
   const bestCrossing = [...filtered].sort((a, b) => a.wait - b.wait)[0];
 
   const isLoading = !hydrated;
+
+  useEffect(() => {
+    trackEvent?.('open_app', { screen: 'Home' });
+  }, []);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
@@ -264,10 +268,10 @@ export default function HomeScreen({ navigation }) {
             ))}
 
             {/* Community feed preview */}
-            {reports.length > 0 && (
+            {reports.filter((r) => !r.hidden).length > 0 && (
               <>
                 <SectionHeader title="Recent Community Reports" dark={dark} />
-                {reports.slice(0, 3).map((r) => (
+                {reports.filter((r) => !r.hidden).slice(0, 3).map((r) => (
                   <View key={r.id} style={[styles.miniReport, { backgroundColor: card }]}>
                     <View style={[styles.miniAvatar, { backgroundColor: r.avatarColor }]}>
                       <Text style={styles.miniInitials}>{r.initials}</Text>
@@ -290,30 +294,30 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, borderBottomWidth: 0.5 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 34, fontWeight: '800', letterSpacing: -0.5 },
-  reportBtn: { backgroundColor: BLUE, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  reportBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
-  searchInput: { flex: 1, fontSize: 16 },
-  bestBanner: { padding: 16, borderRadius: 18 },
-  bestLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  bestRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  bestName: { fontSize: 18, fontWeight: '800', color: '#fff', marginLeft: 8, flex: 1 },
-  bestPill: { backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5 },
-  bestPillText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  bestSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
-  widgetSmall: { borderRadius: 16, padding: 14, width: 150, justifyContent: 'center' },
-  widgetName: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 4 },
-  widgetWait: { color: '#fff', fontSize: 24, fontWeight: '800', marginTop: 4 },
-  widgetLevel: { color: 'rgba(255,255,255,0.8)', fontSize: 10 },
-  widgetMedium: { borderRadius: 16, padding: 14, width: 230, justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
-  widgetMediumRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  widgetMediumName: { flex: 1, fontSize: 12, fontWeight: '600' },
-  miniReport: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 8, padding: 12, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
-  miniAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  miniInitials: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  miniReportName: { fontSize: 13, fontWeight: '600' },
-  miniReportTime: { fontSize: 12, color: '#8E8E93' },
+  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, borderBottomWidth: 0.5 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  title: { fontSize: 36, fontWeight: '800', letterSpacing: -0.6 },
+  reportBtn: { backgroundColor: BLUE, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, minHeight: 44 },
+  reportBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, gap: 10, minHeight: 48 },
+  searchInput: { flex: 1, fontSize: 17 },
+  bestBanner: { padding: 18, borderRadius: 18 },
+  bestLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase' },
+  bestRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  bestName: { fontSize: 20, fontWeight: '800', color: '#fff', marginLeft: 10, flex: 1 },
+  bestPill: { backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
+  bestPillText: { color: '#fff', fontWeight: '800', fontSize: 17 },
+  bestSub: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 6 },
+  widgetSmall: { borderRadius: 16, padding: 16, width: 160, justifyContent: 'center' },
+  widgetName: { color: '#fff', fontSize: 13, fontWeight: '700', marginTop: 6 },
+  widgetWait: { color: '#fff', fontSize: 28, fontWeight: '800', marginTop: 6 },
+  widgetLevel: { color: 'rgba(255,255,255,0.85)', fontSize: 11 },
+  widgetMedium: { borderRadius: 16, padding: 16, width: 240, justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
+  widgetMediumRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  widgetMediumName: { flex: 1, fontSize: 13, fontWeight: '600' },
+  miniReport: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, padding: 14, borderRadius: 12, minHeight: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  miniAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  miniInitials: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  miniReportName: { fontSize: 15, fontWeight: '600' },
+  miniReportTime: { fontSize: 13, color: '#8E8E93' },
 });

@@ -11,7 +11,7 @@ const LANES = ['Standard', 'SENTRI / NEXUS', 'Ready Lane'];
 
 export default function ReportScreen({ route, navigation }) {
   const { crossing: initialCrossing } = route.params ?? {};
-  const { dark, addReport, crossings } = useApp();
+  const { dark, addReport, crossings, trackEvent } = useApp();
 
   const [step, setStep] = useState(initialCrossing ? 1 : 0);
   const [selectedCrossing, setSelectedCrossing] = useState(initialCrossing);
@@ -19,6 +19,7 @@ export default function ReportScreen({ route, navigation }) {
   const [wait, setWait] = useState(20);
   const [note, setNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
   const card = dark ? '#2C2C2E' : '#fff';
@@ -31,7 +32,7 @@ export default function ReportScreen({ route, navigation }) {
 
   const handleSubmit = () => {
     if (!selectedCrossing) return;
-    addReport({
+    const result = addReport({
       crossingId: selectedCrossing.id,
       crossingName: selectedCrossing.name,
       border: selectedCrossing.border,
@@ -40,6 +41,12 @@ export default function ReportScreen({ route, navigation }) {
       wait,
       note: note.trim(),
     });
+    if (!result?.ok) {
+      setSubmitError(result?.error || 'Unable to submit report right now.');
+      trackEvent?.('submit_report_failed', { crossingId: selectedCrossing.id, reason: result?.error || 'unknown' });
+      return;
+    }
+    setSubmitError('');
     setSubmitted(true);
   };
 
@@ -167,6 +174,9 @@ export default function ReportScreen({ route, navigation }) {
             </View>
 
             {/* Submit */}
+            {!!submitError && (
+              <Text style={{ color: '#FF453A', marginHorizontal: 16, marginTop: 8, fontSize: 13 }}>{submitError}</Text>
+            )}
             <TouchableOpacity onPress={handleSubmit} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, borderRadius: 14, overflow: 'hidden' }}>
               <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.submitBtn}>
                 <Text style={styles.submitText}>Submit Report</Text>
