@@ -480,7 +480,7 @@ export function AppProvider({ children }) {
                 startTime:  trip.startTime,
                 endTime:    trip.endTime,
                 actualWaitMinutes: trip.actualWait,
-                appVersion: '1.2.1',
+                appVersion: '1.3.0',
               }),
             });
           } catch { /* silent — failure never blocks the user */ }
@@ -504,7 +504,7 @@ export function AppProvider({ children }) {
 
   const getAnalyticsExport = () => JSON.stringify({
     exportedAt: new Date().toISOString(),
-    appVersion: '1.2.1',
+    appVersion: '1.3.0',
     eventCount: analytics.length,
     events: analytics,
   }, null, 2);
