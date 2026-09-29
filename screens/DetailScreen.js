@@ -271,6 +271,13 @@ export default function DetailScreen({ route, navigation }) {
           </>
         )}
 
+
+        {/* Report button */}
+        <TouchableOpacity onPress={() => navigation.navigate('Report', { crossing })} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 20, borderRadius: 14, overflow: 'hidden' }}>
+          <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.reportBtn}>
+            <Text style={styles.reportBtnText}>📝 Report Wait Time</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

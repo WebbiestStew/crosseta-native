@@ -194,7 +194,7 @@ npx expo run:android
 
 - [ ] Cover every CBP port of entry (currently 52)
 - [ ] Store CBP history to power real forecasts and heatmaps
-- [ ] Community reports with a backend (hidden until then)
+- [ ] Community reports with a backend (currently a local-only preview)
 - [ ] Push notifications / background fetch, widgets, pedestrian and commercial lanes, Spanish
 - [ ] Real backend for trip contributions and community reports
 - [ ] Native iOS widget (WidgetKit via Expo)

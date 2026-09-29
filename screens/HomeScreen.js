@@ -123,6 +123,13 @@ export default function HomeScreen({ navigation }) {
             >
               <Text style={[styles.reportBtnText, { color: BLUE }]}>📍 Map</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Report', { crossing: null })}
+              style={styles.reportBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.reportBtnText}>+ Report</Text>
+            </TouchableOpacity>
           </View>
         </View>
         {/* Search */}

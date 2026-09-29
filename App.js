@@ -14,6 +14,7 @@ import DetailScreen from './screens/DetailScreen';
 import AlertsScreen from './screens/AlertsScreen';
 import TripsScreen from './screens/TripsScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import CommunityScreen from './screens/CommunityScreen';
 import ReportScreen from './screens/ReportScreen';
 import ShareScreen from './screens/ShareScreen';
 import InLineScreen from './screens/InLineScreen';
@@ -82,6 +83,11 @@ function HomeTabs({ navigation }) {
             tabBarBadge: alertBadgeCount > 0 ? alertBadgeCount : undefined,
             tabBarBadgeStyle: { backgroundColor: '#FF453A', color: '#fff', fontSize: 10, fontWeight: '700' },
           }}
+        />
+        <Tab.Screen
+          name="CommunityTab"
+          component={CommunityScreen}
+          options={{ title: 'Community', tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
         />
         <Tab.Screen
           name="TripsTab"

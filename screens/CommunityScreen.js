@@ -77,6 +77,10 @@ export default function CommunityScreen({ navigation }) {
           </View>
         </View>
 
+        <Text style={{ fontSize: 12, color: sub, textAlign: 'center', marginHorizontal: 24, marginTop: 12 }}>
+          Preview: reports are saved on this device only and aren't shared with other users yet.
+        </Text>
+
         {/* Reports */}
         <SectionHeader title={`${sorted.length} Reports`} dark={dark} />
         {sorted.length === 0 ? (
