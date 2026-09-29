@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, waitColor, colors } from '../data';
+import { BLUE, GREEN, waitColor, colors, byWaitAsc, fmtMin } from '../data';
 import { SectionHeader } from '../components/UI';
 
 export default function CrossingComparisonScreen({ route, navigation }) {
@@ -15,7 +15,7 @@ export default function CrossingComparisonScreen({ route, navigation }) {
   const region = thisCrossing?.region;
   const regionCrossings = crossings
     .filter((x) => x.region === region)
-    .sort((a, b) => a.wait - b.wait);
+    .sort(byWaitAsc);
 
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: c.bg }]}>
@@ -76,10 +76,10 @@ export default function CrossingComparisonScreen({ route, navigation }) {
                   </Text>
                 )}
               </View>
-              <Text style={[styles.cell, { color: waitColor(crossing.wait) }]}>{crossing.wait}m</Text>
-              <Text style={[styles.cell, { color: waitColor(crossing.sentriWait) }]}>{crossing.sentriWait}m</Text>
-              <Text style={[styles.cell, { color: waitColor(crossing.predict1h) }]}>{crossing.predict1h}m</Text>
-              <Text style={[styles.cell, { color: waitColor(crossing.predict3h) }]}>{crossing.predict3h}m</Text>
+              <Text style={[styles.cell, { color: waitColor(crossing.wait) }]}>{fmtMin(crossing.wait)}</Text>
+              <Text style={[styles.cell, { color: waitColor(crossing.sentriWait) }]}>{fmtMin(crossing.sentriWait)}</Text>
+              <Text style={[styles.cell, { color: waitColor(crossing.predict1h) }]}>{fmtMin(crossing.predict1h)}</Text>
+              <Text style={[styles.cell, { color: waitColor(crossing.predict3h) }]}>{fmtMin(crossing.predict3h)}</Text>
             </TouchableOpacity>
           );
         })}

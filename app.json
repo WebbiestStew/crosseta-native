@@ -25,12 +25,25 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#007AFF"
       },
-      "package": "com.crosseta.app"
+      "package": "com.diegovillarreal.crosseta",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "plugins": [
       "expo-asset",
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "CrossETA uses your location to sort crossings by distance and to track your progress through the border line."
+        }
+      ]
     ]
   }
 }

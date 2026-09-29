@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { ALL_CROSSINGS, SEED_REPORTS, SEED_TRIPS, BLUE } from '../data';
+import { estimateWait, ALL_CROSSINGS, SEED_REPORTS, SEED_TRIPS, BLUE } from '../data';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -31,7 +31,7 @@ const KEYS = {
   lowAlerts:        '@crosseta/lowAlerts',        // { [crossingId]: boolean }
   checklist:        '@crosseta/checklist',        // { [crossingId]: { [itemId]: boolean } }
   weeklyNotifSent:  '@crosseta/weeklyNotifSent',  // { [crossingId]: ISO date string }
-  cachedCrossings:  '@crosseta/cachedCrossings',  // last successful CBP payload merged with seeds
+  cachedCrossings:  '@crosseta/cachedCrossings_v2',  // last successful CBP payload merged with seeds
   profile:          '@crosseta/profile',          // { displayName, initials }
   reportMeta:       '@crosseta/reportMeta',       // { lastPostedByCrossing: { [id]: ts } }
   quietHours:       '@crosseta/quietHours',       // { enabled, start, end }
@@ -44,6 +44,17 @@ const KEYS = {
 };
 
 // Normalize a string for fuzzy CBP name matching
+// CBP lane block -> { minutes: number|null, closed: bool }. "no delay" is a real 0,
+// not a missing value; blank/unavailable/closed lanes are null (never a stale number).
+const readLane = (lane) => {
+  if (!lane) return { minutes: null, closed: false };
+  const status = String(lane.operational_status ?? '').toLowerCase();
+  if (status.includes('closed')) return { minutes: null, closed: true };
+  if (status.includes('no delay')) return { minutes: 0, closed: false };
+  const n = parseInt(lane.delay_minutes, 10);
+  return { minutes: Number.isFinite(n) ? n : null, closed: false };
+};
+
 const normName = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 
 const getInitials = (name = 'You') => {
@@ -185,7 +196,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!hydrated) return;
     crossings.forEach((c) => {
-      if (!favorites.includes(c.id) || !notifSettings[c.id]) return;
+      if (!favorites.includes(c.id) || !notifSettings[c.id] || c.wait == null) return;
       const threshold = thresholds[c.id] ?? 20;
       const now = Date.now();
       const cooldownKey = c.id;
@@ -238,11 +249,13 @@ export function AppProvider({ children }) {
       if (!res.ok) return;
       const data = await res.json();
       if (!Array.isArray(data)) return;
+      const now = Date.now();
       setCrossings((prev) => {
         const updated = prev.map((c) => {
           const cn = normName(c.name);
           const cityBase = normName(c.city.split(',')[0]);
-          const match = data.find((d) => {
+          const isExact = (d) => d.port_name && normName(d.port_name) === cn;
+          const isFuzzy = (d) => {
             if (!d.port_name) return false;
             const pn = normName(d.port_name);
             const xn = d.crossing_name ? normName(d.crossing_name) : '';
@@ -251,13 +264,30 @@ export function AppProvider({ children }) {
               cityBase === pn ||
               (xn && (cn.includes(xn) || xn.includes(cn)))
             );
-          });
+          };
+          const match = data.find(isExact) ?? data.find(isFuzzy);
           if (!match) return c;
+          const lanes = match.passenger_vehicle_lanes ?? {};
+          const std = readLane(lanes.standard_lanes);
+          const sentri = readLane(lanes.NEXUS_SENTRI_lanes);
+          const ready = readLane(lanes.ready_lanes);
+          const wait = std.minutes;
           return {
             ...c,
-            wait: parseInt(match.passenger_vehicle_lanes?.standard_lanes?.delay_minutes) || c.wait,
-            sentriWait: parseInt(match.passenger_vehicle_lanes?.NEXUS_SENTRI_lanes?.delay_minutes) || c.sentriWait,
-            dataAge: 0,
+            live: wait != null,
+            updatedAt: now,
+            wait,
+            sentriWait: sentri.minutes,
+            readyWait: ready.minutes,
+            laneStatus: std.closed ? 'Lanes closed' : null,
+            trend: wait == null || c.wait == null ? null : wait > c.wait ? 'up' : wait < c.wait ? 'down' : 'stable',
+            // Rough estimates from a generic time-of-day curve, not per-crossing history.
+            predict1h: estimateWait(wait, 1),
+            predict3h: estimateWait(wait, 3),
+            sentriPredict1h: estimateWait(sentri.minutes, 1),
+            sentriPredict3h: estimateWait(sentri.minutes, 3),
+            readyPredict1h: estimateWait(ready.minutes, 1),
+            readyPredict3h: estimateWait(ready.minutes, 3),
           };
         });
         // Persist updated crossing data as offline cache
@@ -594,24 +624,8 @@ export function AppProvider({ children }) {
     trackEvent('delete_trip_template', { templateId: id });
   };
 
-  const getWeeklyInsight = () => {
-    if (!favorites.length) return null;
-    const candidates = crossings.filter((c) => favorites.includes(c.id));
-    if (!candidates.length) return null;
-    const best = [...candidates].sort((a, b) => a.wait - b.wait)[0];
-    if (!best?.weeklyPattern?.length) {
-      return { crossingId: best.id, crossingName: best.name, bestDay: 'This week', bestSlot: 'Now', avgWait: best.wait };
-    }
-    const slots = best.weeklyPattern.flatMap((d) => d.slots.map((s) => ({ day: d.day, slot: s.slot, wait: s.wait })));
-    const slot = slots.reduce((a, b) => (b.wait < a.wait ? b : a));
-    return {
-      crossingId: best.id,
-      crossingName: best.name,
-      bestDay: slot.day,
-      bestSlot: slot.slot,
-      avgWait: slot.wait,
-    };
-  };
+  // Needs real per-crossing history, which the app doesn't collect yet.
+  const getWeeklyInsight = () => null;
 
   const setAccessibility = (val) => {
     setAccessibilityState(val);

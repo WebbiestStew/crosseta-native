@@ -131,9 +131,8 @@ export default function TripHistoryScreen({ navigation }) {
           <View style={styles.infoTextBlock}>
             <Text style={[styles.infoTitle, { color: c.text }]}>How does this help?</Text>
             <Text style={[styles.infoBody, { color: c.subtext }]}>
-              Every trip you track is anonymously contributed to CrossETA's prediction
-              model — giving everyone more accurate wait-time forecasts over time.
-              No personal data is ever stored.
+              Trips you track are saved on this device only, so you can see how your
+              real crossing times compare with the posted waits.
             </Text>
           </View>
         </View>
@@ -290,7 +289,7 @@ function EmptyState({ dark }) {
       <Text style={[styles.emptyTitle, { color: c.text }]}>No trips yet</Text>
       <Text style={[styles.emptyBody, { color: c.subtext }]}>
         Tap "I'm In Line" on the home screen to start tracking a crossing. Your wait
-        times will appear here and help improve predictions for everyone.
+        times will appear here.
       </Text>
     </View>
   );

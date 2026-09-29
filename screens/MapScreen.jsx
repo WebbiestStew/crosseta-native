@@ -42,7 +42,7 @@ export default function MapScreen({ navigation }) {
               onPress={() => setSelected(crossing)}
             >
               <View style={[styles.pin, { backgroundColor: pinBg }]}>
-                <Text style={styles.pinText}>{crossing.wait}m</Text>
+                <Text style={styles.pinText}>{crossing.wait != null ? `${crossing.wait}m` : '—'}</Text>
               </View>
             </Marker>
           );
@@ -59,7 +59,7 @@ export default function MapScreen({ navigation }) {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
             <Text style={[styles.calloutWait, { color: waitColor(selected.wait) }]}>
-              {selected.wait} min
+              {selected.wait != null ? `${selected.wait} min` : 'No live data'}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Detail', { crossing: selected })}

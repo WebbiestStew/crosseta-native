@@ -345,14 +345,6 @@ export default function SettingsScreen() {
         </ToggleSection>
         ) : null}
 
-        {sectionVisible('predictions') ? (
-        <ToggleSection id="predictions" title="Predictions">
-          <View style={[styles.card, { backgroundColor: card }]}>
-            <Row label="Accuracy Target" sub="Average prediction accuracy" right={<Text style={{ color: GREEN, fontSize: 14, fontWeight: '700' }}>83%</Text>} last />
-          </View>
-        </ToggleSection>
-        ) : null}
-
         {sectionVisible('about') ? (
         <ToggleSection id="about" title="About">
           <View style={[styles.card, { backgroundColor: card }]}>

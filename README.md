@@ -17,9 +17,9 @@
 
 ## Overview
 
-CrossETA is a mobile app for frequent US border crossers — commuters, truckers, and travelers — who need real-time wait times and smart departure planning across **all US land border crossings** (81 official CBP ports of entry).
+CrossETA is a mobile app for frequent US border crossers — commuters, truckers, and travelers — who need real-time wait times and smart departure planning across **52 US land border crossings** (US–Mexico and US–Canada) drawn from the CBP port list.
 
-Pull live data from the **official CBP BWTnew API** (covers all US–Mexico and US–Canada land borders), predict wait times up to 3 hours ahead, start a GPS-tracked crossing session, and get notified the moment conditions are in your favor.
+Pull live data from the **official CBP BWTnew API** (covers all US–Mexico and US–Canada land borders), see rough +1h/+3h estimates, start a GPS-tracked crossing session, and get alerts for starred crossings while the app is open.
 
 ---
 
@@ -27,16 +27,15 @@ Pull live data from the **official CBP BWTnew API** (covers all US–Mexico and 
 
 ### Live Wait Times
 - Pulls from the **official CBP BWTnew API** every 5 minutes
-- Covers **all 81 US land border crossing ports of entry** (26 US–Mexico crossings spans CA, AZ, NM, TX; 19+ US–Canada crossings spans WA, ID, MT, ND, MN, MI, NY, VT, ME)
+- Covers 52 crossings along the US–Mexico and US–Canada borders. A crossing with no matching CBP data shows "No live data" instead of a number
+- Standard, SENTRI/NEXUS and Ready Lane waits come straight from CBP; closed lanes show as closed
 - Shows **Standard**, **SENTRI/NEXUS**, and **Ready Lane** waits per crossing
 - Stale-data banner animates in after 15 minutes without a refresh
 - Offline cache via AsyncStorage for instant load on re-open
 
-### Predictions & Heatmaps
-- **+1h and +3h forecasts** with a confidence score per crossing
-- **24-hour sparkline** — see how wait times trend throughout the day
-- **7-day heatmap** — color-coded grid of best/worst crossing slots for every hour of the week
-- All charts built from scratch with `react-native-svg` (no charting library)
+### Estimates
+- **Est. +1h and +3h** figures scale the current CBP wait by a generic time-of-day curve. They are rough estimates, not per-crossing forecasts, and are labelled "Est." in the app
+- Per-crossing history, heatmaps and accuracy scores are not shipped yet: they need stored CBP history, which the app doesn't collect
 
 ### Leave-By Calculator
 - Enter your desired arrival time → app computes drive time + expected wait → tells you exactly when to leave
@@ -51,14 +50,15 @@ Pull live data from the **official CBP BWTnew API** (covers all US–Mexico and 
 - Session persists through app restarts — close the app mid-crossing and it picks back up
 - Completed trips are saved to a local analytics log
 
-### Smart Notifications (5 types)
+### Notifications (4 types, local only)
+Threshold and drop alerts are evaluated only while the app is running (no push server or background fetch yet). Leave-by reminders are scheduled on-device and fire even when the app is closed.
+
 | Type | Trigger |
 |---|---|
 | **Threshold alert** | Wait exceeds your set limit for a starred crossing |
 | **Drop alert** | Wait falls back below your threshold ("good to go") |
 | **Leave-by reminder** | Fires at your calculated departure time |
 | **Crossing complete** | Celebration notification when your GPS session ends |
-| **Weekly preview** | Sunday morning best-time summary for your favorites |
 
 All notifications include proper cooldown timers and per-crossing deduplication so you never get flooded.
 
@@ -69,7 +69,6 @@ All notifications include proper cooldown timers and per-crossing deduplication 
 
 ### More
 - **Region comparison table** — every crossing in your region side by side
-- **Community reports** — crowdsourced wait submissions with upvote/downvote
 - **Packing checklist** — per-crossing document checklist with an animated SVG progress ring
 - **Trip history & analytics** — personal stats: favorite crossing, best day of week, average wait, personal best
 - **Near Me sorting** — distance-based crossing order using device location
@@ -130,7 +129,7 @@ RootStack
 ├── HomeTabs (bottom tabs)
 │   ├── HomeStack
 │   │   ├── HomeScreen      — search, filter, sort, favorites
-│   │   ├── DetailScreen    — hero gradient, leave-by calc, heatmaps, reports
+│   │   ├── DetailScreen    — hero gradient, leave-by calc, reports
 │   │   ├── CrossingComparisonScreen
 │   │   └── MapScreen
 │   └── TripsStack
@@ -193,7 +192,10 @@ npx expo run:android
 
 ## Roadmap
 
-- [ ] Expand to **all 81 US border crossing ports of entry** (currently ~46, full API coverage coming soon)
+- [ ] Cover every CBP port of entry (currently 52)
+- [ ] Store CBP history to power real forecasts and heatmaps
+- [ ] Community reports with a backend (hidden until then)
+- [ ] Push notifications / background fetch, widgets, pedestrian and commercial lanes, Spanish
 - [ ] Real backend for trip contributions and community reports
 - [ ] Native iOS widget (WidgetKit via Expo)
 - [ ] CarPlay support

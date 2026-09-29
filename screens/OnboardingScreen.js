@@ -9,9 +9,8 @@ import { useApp } from '../context/AppContext';
 
 const FEATURES = [
   { icon: '⏱', title: 'See Wait Times', desc: 'Real updates every 5 minutes' },
-  { icon: '🔮', title: 'Plan Your Trip', desc: 'Know when to leave and when waits are better' },
-  { icon: '🗓', title: 'Best Times', desc: 'Find the fastest crossing days and times' },
-  { icon: '👥', title: 'Community Tips', desc: 'See reports from other travelers' },
+  { icon: '🔮', title: 'Plan Your Trip', desc: 'Work out when to leave based on the current wait' },
+  { icon: '📍', title: 'Track Your Crossing', desc: 'Log how long each crossing really takes' },
 ];
 
 const TIMES = ['Early Morning (4–7am)', 'Morning (7–10am)', 'Midday (10am–1pm)', 'Afternoon (1–5pm)', 'Evening (5–9pm)', 'I vary'];

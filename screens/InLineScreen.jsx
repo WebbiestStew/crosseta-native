@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { useLineTracker } from '../hooks/useLineTracker';
-import { colors, BLUE, GREEN, ORANGE, RED } from '../data';
+import { colors, BLUE, GREEN, ORANGE, RED, fmtMin } from '../data';
 import { Card, BigSparkline, GlassSurface } from '../components/UI';
 
 /** Format seconds as MM:SS */
@@ -178,36 +178,15 @@ export default function InLineScreen({ navigation }) {
           )}
         </LinearGradient>
 
-        {/* ── Today's pattern sparkline ── */}
-        <Card dark={dark} style={styles.sparkCard}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Today's Pattern</Text>
-          <Text style={[styles.cardSub, { color: c.subtext }]}>
-            Historical wait times · circle marks now
-          </Text>
-          <View style={styles.sparklineWrapper}>
-            <BigSparkline
-              data={crossing.hourlyPattern}
-              currentHour={currentHour}
-              width={width - 64}
-            />
-          </View>
-          <View style={styles.sparkAxis}>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>12am</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>6am</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>12pm</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>6pm</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>11pm</Text>
-          </View>
-        </Card>
 
         {/* ── Predictions snapshot ── */}
         <Card dark={dark} style={styles.predictCard}>
           <Text style={[styles.cardTitle, { color: c.text }]}>Current Lane Estimates</Text>
           <View style={styles.predictRow}>
             {[
-              { label: 'Standard now', value: `${crossing.wait} min` },
-              { label: 'SENTRI now',   value: `${crossing.sentriWait} min` },
-              { label: '+1h standard', value: `${crossing.predict1h} min` },
+              { label: 'Standard now', value: fmtMin(crossing.wait, ' min') },
+              { label: 'SENTRI now',   value: fmtMin(crossing.sentriWait, ' min') },
+              { label: 'Est. +1h standard', value: fmtMin(crossing.predict1h, ' min') },
             ].map(({ label, value }) => (
               <View key={label} style={styles.predictCell}>
                 <Text style={[styles.predictValue, { color: c.text }]}>{value}</Text>
@@ -220,8 +199,8 @@ export default function InLineScreen({ navigation }) {
         {/* ── Privacy note ── */}
         <GlassSurface dark={dark} borderRadius={14} style={styles.privacyNote}>
           <Text style={[styles.privacyText, { color: c.subtext }]}>
-            🔒  GPS is active only while this screen is open. Your data helps improve
-            predictions for everyone — anonymously.
+            🔒  GPS is active only while this screen is open. Your location stays on
+            this device.
           </Text>
         </GlassSurface>
 

@@ -4,14 +4,14 @@ import {
 } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel } from '../data';
+import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, fmtMin, dataAgeMin } from '../data';
 
 export default function ShareScreen({ route, navigation }) {
   const { crossing } = route.params;
   const cardRef = useRef(null);
 
   const handleShareText = async () => {
-    const message = `🚦 Border Wait: ${crossing.name}\n📍 ${crossing.city}\n⏱ Current Wait: ${crossing.wait} min (${waitLabel(crossing.wait)})\n\n📱 Check live times → CrossETA app`;
+    const message = `🚦 Border Wait: ${crossing.name}\n📍 ${crossing.city}\n⏱ Current Wait: ${crossing.wait != null ? `${crossing.wait} min (${waitLabel(crossing.wait)})` : 'no live data'}\n\n📱 Check live times → CrossETA app`;
     await Share.share({ message, title: `CrossETA – ${crossing.name}` });
   };
 
@@ -53,7 +53,7 @@ export default function ShareScreen({ route, navigation }) {
               <Text style={styles.cardCity}>{crossing.city}, {crossing.country}</Text>
             </View>
             <View style={styles.cardRight}>
-              <Text style={[styles.cardWait, { color }]}>{crossing.wait}</Text>
+              <Text style={[styles.cardWait, { color }]}>{crossing.wait ?? '—'}</Text>
               <Text style={styles.cardMin}>min</Text>
               <View style={[styles.cardBadge, { backgroundColor: `${color}33` }]}>
                 <Text style={[styles.cardBadgeText, { color }]}>{waitLabel(crossing.wait)}</Text>
@@ -64,17 +64,17 @@ export default function ShareScreen({ route, navigation }) {
           <View style={styles.cardFooter}>
             {[
               { l: 'SENTRI', v: crossing.sentriWait },
-              { l: '+1h', v: crossing.predict1h },
-              { l: '+3h', v: crossing.predict3h },
+              { l: 'Est. +1h', v: crossing.predict1h },
+              { l: 'Est. +3h', v: crossing.predict3h },
             ].map((p) => (
               <View key={p.l} style={styles.cardFooterItem}>
                 <Text style={styles.cardFooterLabel}>{p.l}</Text>
-                <Text style={[styles.cardFooterValue, { color: waitColor(p.v) }]}>{p.v}m</Text>
+                <Text style={[styles.cardFooterValue, { color: waitColor(p.v) }]}>{fmtMin(p.v)}</Text>
               </View>
             ))}
             <View style={styles.cardFooterItem}>
               <Text style={styles.cardFooterLabel}>Updated</Text>
-              <Text style={styles.cardFooterValue}>{crossing.dataAge}m ago</Text>
+              <Text style={styles.cardFooterValue}>{fmtMin(dataAgeMin(crossing), 'm ago')}</Text>
             </View>
           </View>
           </LinearGradient>

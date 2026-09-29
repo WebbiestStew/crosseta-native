@@ -297,7 +297,7 @@ function CrossingRow({ crossing, selected, onPress, dark }) {
         <Text style={[styles.crossingCity, { color: c.subtext }]}>{crossing.city}</Text>
       </View>
       <Text style={[styles.crossingWait, { color: selected ? BLUE : c.subtext }]}>
-        {crossing.wait} min
+        {crossing.wait != null ? `${crossing.wait} min` : '—'}
       </Text>
       {selected && <Text style={styles.checkmark}>✓</Text>}
     </TouchableOpacity>

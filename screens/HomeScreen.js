@@ -6,7 +6,7 @@ import {
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, waitColor, timeAgo, isOpenNow, CROSSING_COORDS } from '../data';
+import { BLUE, GREEN, ORANGE, waitColor, timeAgo, isOpenNow, CROSSING_COORDS, byWaitAsc } from '../data';
 import { PillBtn, SectionHeader, WaitPill, Sparkline } from '../components/UI';
 import CrossingCard from '../components/CrossingCard';
 import SkeletonCard from '../components/SkeletonCard';
@@ -72,8 +72,8 @@ export default function HomeScreen({ navigation }) {
 
   const applySort = (arr) => {
     switch (sort) {
-      case 'waitAsc':  return [...arr].sort((a, b) => a.wait - b.wait);
-      case 'waitDesc': return [...arr].sort((a, b) => b.wait - a.wait);
+      case 'waitAsc':  return [...arr].sort(byWaitAsc);
+      case 'waitDesc': return [...arr].sort((a, b) => (b.wait ?? -1) - (a.wait ?? -1));
       case 'name':     return [...arr].sort((a, b) => a.name.localeCompare(b.name));
       case 'nearMe':   return nearMeDistances
         ? [...arr].sort((a, b) => (nearMeDistances[a.id] ?? 99999) - (nearMeDistances[b.id] ?? 99999))
@@ -100,7 +100,7 @@ export default function HomeScreen({ navigation }) {
 
   const favCrossings = filtered.filter((c) => favorites.includes(c.id));
   const otherCrossings = filtered.filter((c) => !favorites.includes(c.id));
-  const bestCrossing = [...filtered].sort((a, b) => a.wait - b.wait)[0];
+  const bestCrossing = filtered.filter((c) => c.live).sort(byWaitAsc)[0];
   const weeklyInsight = getWeeklyInsight?.();
 
   const isLoading = !hydrated;
@@ -122,13 +122,6 @@ export default function HomeScreen({ navigation }) {
               activeOpacity={0.8}
             >
               <Text style={[styles.reportBtnText, { color: BLUE }]}>📍 Map</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Report', { crossing: null })}
-              style={styles.reportBtn}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.reportBtnText}>+ Report</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -201,38 +194,6 @@ export default function HomeScreen({ navigation }) {
             </Text>
           </View>
         )}
-
-        {/* Widget Preview */}
-        {!uiPrefs.simpleMode && favorites.length > 0 && (() => {
-          const c = crossings.find((x) => x.id === favorites[0]);
-          const c2 = favorites.length >= 2 ? crossings.find((x) => x.id === favorites[1]) : null;
-          return (
-            <>
-              <SectionHeader title="Home Screen Widgets" dark={dark} />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
-                {c && (
-                  <LinearGradient colors={['#007AFF', '#5AC8FA']} style={styles.widgetSmall} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                    <Text style={{ fontSize: 20 }}>{c.flag}</Text>
-                    <Text style={styles.widgetName}>{c.name}</Text>
-                    <Text style={styles.widgetWait}>{c.wait}m</Text>
-                    <Text style={styles.widgetLevel}>{c.wait <= 15 ? 'Low' : c.wait <= 40 ? 'Moderate' : 'High'}</Text>
-                  </LinearGradient>
-                )}
-                {c && c2 && (
-                  <View style={[styles.widgetMedium, { backgroundColor: card }]}>
-                    {[c, c2].map((w) => (
-                      <View key={w.id} style={styles.widgetMediumRow}>
-                        <Text style={{ fontSize: 16 }}>{w.flag}</Text>
-                        <Text style={[styles.widgetMediumName, { color: text }]} numberOfLines={1}>{w.name}</Text>
-                        <WaitPill wait={w.wait} small />
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </ScrollView>
-            </>
-          );
-        })()}
 
         {/* Filter pills */}
         {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>

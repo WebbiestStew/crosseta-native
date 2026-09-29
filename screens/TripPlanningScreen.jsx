@@ -26,7 +26,7 @@ export default function TripPlanningScreen({ navigation }) {
 
   const arrH = (parseInt(arrHour) % 12) + (arrAmPm === 'PM' ? 12 : 0);
   const arrTotalMin = arrH * 60 + parseInt(arrMin);
-  const totalTrip = crossing ? (crossing.driveMin || 0) + crossing.wait : 0;
+  const totalTrip = crossing ? (crossing.driveMin || 0) + (crossing.wait ?? 0) : 0;
   const leaveByMin = arrTotalMin - totalTrip;
   const lbH = Math.floor(((leaveByMin % 1440) + 1440) % 1440 / 60);
   const lbM = ((leaveByMin % 60) + 60) % 60;
@@ -44,7 +44,7 @@ export default function TripPlanningScreen({ navigation }) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `🚗 Time to leave for ${crossing.name}!`,
-          body: `Current wait: ${crossing.wait} min. Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
+          body: `${crossing.wait != null ? `Wait when set: ${crossing.wait} min. ` : ''}Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
           data: { crossingId: crossing.id },
         },
         trigger: { seconds },
@@ -63,7 +63,7 @@ export default function TripPlanningScreen({ navigation }) {
 
   function laneFromCrossing(selCrossing) {
     if (!selCrossing) return 'standard';
-    if ((selCrossing.sentriWait ?? 999) < selCrossing.wait) return 'sentri';
+    if (selCrossing.wait != null && (selCrossing.sentriWait ?? 999) < selCrossing.wait) return 'sentri';
     return 'standard';
   }
 
@@ -167,7 +167,7 @@ export default function TripPlanningScreen({ navigation }) {
                 <View style={styles.planGrid}>
                   {[
                     { l: 'Drive Time', v: `${crossing.driveMin || 0} min`, color: c.text },
-                    { l: 'Border Wait', v: `${crossing.wait} min`, color: waitColor(crossing.wait) },
+                    { l: 'Border Wait', v: crossing.wait != null ? `${crossing.wait} min` : '—', color: waitColor(crossing.wait) },
                     { l: 'Total Trip', v: `${totalTrip} min`, color: c.text },
                     { l: '🚗 Leave By', v: leaveByStr, color: BLUE },
                   ].map((item) => (
@@ -214,7 +214,7 @@ export default function TripPlanningScreen({ navigation }) {
                   name: `${crossing.name} Trip`,
                   crossingId: crossing.id,
                   laneType,
-                  threshold: crossing.wait,
+                  threshold: crossing.wait ?? 20,
                   arrival: `${arrHour}:${arrMin} ${arrAmPm}`,
                 });
               }}

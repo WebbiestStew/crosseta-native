@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import { View, Text, Animated, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,7 +12,6 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import HomeScreen from './screens/HomeScreen';
 import DetailScreen from './screens/DetailScreen';
 import AlertsScreen from './screens/AlertsScreen';
-import CommunityScreen from './screens/CommunityScreen';
 import TripsScreen from './screens/TripsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ReportScreen from './screens/ReportScreen';
@@ -83,11 +82,6 @@ function HomeTabs({ navigation }) {
             tabBarBadge: alertBadgeCount > 0 ? alertBadgeCount : undefined,
             tabBarBadgeStyle: { backgroundColor: '#FF453A', color: '#fff', fontSize: 10, fontWeight: '700' },
           }}
-        />
-        <Tab.Screen
-          name="CommunityTab"
-          component={CommunityScreen}
-          options={{ title: 'Community', tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
         />
         <Tab.Screen
           name="TripsTab"
@@ -232,12 +226,34 @@ function AppNavigator() {
   );
 }
 
+class ErrorBoundary extends React.Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) { console.warn('Unhandled UI error', error); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#1C1C1E' }}>
+        <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', marginBottom: 8 }}>Something went wrong</Text>
+        <Text style={{ color: '#8E8E93', fontSize: 15, textAlign: 'center', marginBottom: 20 }}>
+          CrossETA hit an unexpected error. Your saved data is safe.
+        </Text>
+        <TouchableOpacity onPress={() => this.setState({ failed: false })} style={{ backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Try again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <AppNavigator />
-      </AppProvider>
+      <ErrorBoundary>
+        <AppProvider>
+          <AppNavigator />
+        </AppProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

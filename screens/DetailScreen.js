@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { Svg, Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, getTimeUntilClose } from '../data';
+import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
 import { WaitPill, SectionHeader, BigSparkline, Card } from '../components/UI';
 import ReportCard from '../components/ReportCard';
 
@@ -34,7 +34,7 @@ export default function DetailScreen({ route, navigation }) {
   // Leave-by calc
   const arrH = (parseInt(arrHour) % 12) + (arrAmPm === 'PM' ? 12 : 0);
   const arrTotalMin = arrH * 60 + parseInt(arrMin);
-  const totalTrip = (crossing.driveMin || 0) + crossing.wait;
+  const totalTrip = (crossing.driveMin || 0) + (crossing.wait ?? 0);
   const leaveByMin = arrTotalMin - totalTrip;
   const lbH = Math.floor(((leaveByMin % 1440) + 1440) % 1440 / 60);
   const lbM = ((leaveByMin % 60) + 60) % 60;
@@ -55,7 +55,7 @@ export default function DetailScreen({ route, navigation }) {
     .reverse(); // oldest first so x-axis reads left→right
   const chartData = myTrips.map((t) => {
     const hour = new Date(t.startTime).getHours();
-    const predicted = crossing.hourlyPattern?.[hour] ?? crossing.wait;
+    const predicted = crossing.wait;
     return { predicted, actual: t.actualWait, date: new Date(t.startTime) };
   });
 
@@ -79,7 +79,7 @@ export default function DetailScreen({ route, navigation }) {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: `🚗 Time to leave for ${crossing.name}!`,
-          body: `Wait is ${crossing.wait} min. Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
+          body: `${crossing.wait != null ? `Wait was ${crossing.wait} min when you set this. ` : ''}Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
           data: { crossingId: crossing.id },
         },
         trigger: { seconds },
@@ -135,17 +135,17 @@ export default function DetailScreen({ route, navigation }) {
               <View>
                 <Text style={{ fontSize: 13, color: '#8E8E93', fontWeight: '500' }}>Current Standard Wait</Text>
                 <Text style={[styles.bigWait, { color: waitColor(crossing.wait) }]}>
-                  {crossing.wait}<Text style={styles.bigWaitUnit}> min</Text>
+                  {crossing.wait ?? '—'}<Text style={styles.bigWaitUnit}> min</Text>
                 </Text>
                 <Text style={{ fontSize: 14, color: waitColor(crossing.wait), fontWeight: '700', marginTop: 2 }}>
                   {waitLabel(crossing.wait)} Traffic
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 12, color: '#8E8E93' }}>Confidence</Text>
-                <Text style={[styles.confidence, { color: text }]}>{crossing.confidence}%</Text>
-                <Text style={{ fontSize: 11, color: crossing.dataAge > 8 ? ORANGE : '#8E8E93', marginTop: 4 }}>
-                  Data: {crossing.dataAge}m ago
+                <Text style={{ fontSize: 12, color: '#8E8E93' }}>Source</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: crossing.live ? GREEN : ORANGE }}>{crossing.live ? 'CBP live' : 'No live data'}</Text>
+                <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 4 }}>
+                  {dataAgeMin(crossing) != null ? `Updated ${dataAgeMin(crossing)}m ago` : 'Not yet updated'}
                 </Text>
               </View>
             </View>
@@ -162,10 +162,10 @@ export default function DetailScreen({ route, navigation }) {
           ].map((lane) => (
             <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
               <Text style={styles.laneLabel}>{lane.label}</Text>
-              <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now}</Text>
+              <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
               <Text style={styles.laneUnit}>min</Text>
-              <Text style={[styles.lanePredict, { color: waitColor(lane.p1) }]}>+1h {lane.p1}m</Text>
-              <Text style={[styles.lanePredict, { color: waitColor(lane.p3) }]}>+3h {lane.p3}m</Text>
+              <Text style={[styles.lanePredict, { color: waitColor(lane.p1) }]}>Est. +1h {fmtMin(lane.p1)}</Text>
+              <Text style={[styles.lanePredict, { color: waitColor(lane.p3) }]}>Est. +3h {fmtMin(lane.p3)}</Text>
             </View>
           ))}
         </View>
@@ -207,7 +207,7 @@ export default function DetailScreen({ route, navigation }) {
               <View style={styles.calcRow}>
                 {[
                   { l: 'Drive Time', v: `${crossing.driveMin || 0} min`, c: text },
-                  { l: 'Border Wait', v: `${crossing.wait} min`, c: waitColor(crossing.wait) },
+                  { l: 'Border Wait', v: fmtMin(crossing.wait, ' min'), c: waitColor(crossing.wait) },
                   { l: 'Total Trip', v: `${totalTrip} min`, c: text },
                   { l: 'Leave By', v: leaveByStr, c: BLUE },
                 ].map((item) => (
@@ -251,130 +251,15 @@ export default function DetailScreen({ route, navigation }) {
         </View>
 
         {/* Predictions row */}
-        <SectionHeader title="Predictions" dark={dark} />
+        <SectionHeader title="Estimates (rough, from a generic daily pattern)" dark={dark} />
         <View style={styles.predictRow}>
-          {[{ label: 'Now', wait: crossing.wait }, { label: '+1 hour', wait: crossing.predict1h }, { label: '+3 hours', wait: crossing.predict3h }].map((p) => (
+          {[{ label: 'Now', wait: crossing.wait }, { label: 'Est. +1 hour', wait: crossing.predict1h }, { label: 'Est. +3 hours', wait: crossing.predict3h }].map((p) => (
             <View key={p.label} style={[styles.predictCard, { backgroundColor: card }]}>
               <Text style={styles.predictLabel}>{p.label}</Text>
               <WaitPill wait={p.wait} />
             </View>
           ))}
         </View>
-
-        {/* 24h Pattern */}
-        <SectionHeader title="Today's Pattern (24h)" dark={dark} />
-        <Card dark={dark}>
-          <View style={{ padding: 16, paddingBottom: 10 }}>
-            <BigSparkline data={crossing.hourlyPattern} currentHour={currentHour} width={320} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-              {['12a', '3a', '6a', '9a', '12p', '3p', '6p', '9p'].map((t) => (
-                <Text key={t} style={{ fontSize: 10, color: '#8E8E93' }}>{t}</Text>
-              ))}
-            </View>
-          </View>
-        </Card>
-
-        {/* Weekly Heatmap */}
-        <SectionHeader title="Weekly Heatmap" dark={dark} />
-        <Card dark={dark}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ padding: 14 }}>
-              {/* Header row */}
-              <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-                <View style={{ width: 34 }} />
-                {['6a', '9a', '12p', '3p', '6p', '9p'].map((s) => (
-                  <Text key={s} style={[styles.heatHeader, { color: '#8E8E93' }]}>{s}</Text>
-                ))}
-              </View>
-              {crossing.weeklyPattern.map((day) => {
-                const isToday = day.day === today;
-                return (
-                  <View key={day.day} style={styles.heatRow}>
-                    <Text style={[styles.heatDay, { color: isToday ? BLUE : (dark ? '#aaa' : '#666'), fontWeight: isToday ? '700' : '500' }]}>
-                      {day.day}
-                    </Text>
-                    {day.slots.map((slot) => {
-                      const { bg: cb, txt } = heatColor(slot.wait);
-                      return (
-                        <View key={slot.slot} style={[styles.heatCell, { backgroundColor: isToday ? 'rgba(0,122,255,0.2)' : cb, borderColor: isToday ? BLUE : 'transparent', borderWidth: isToday ? 1 : 0 }]}>
-                          <Text style={[styles.heatCellText, { color: isToday ? BLUE : txt }]}>{slot.wait}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </Card>
-
-        {/* Best time + accuracy */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: card }]}>
-            <Text style={styles.statLabel}>Best Time Today</Text>
-            <Text style={[styles.statValue, { color: GREEN, fontSize: 12 }]}>{crossing.bestTimeToday}</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: card }]}>
-            <Text style={styles.statLabel}>Prediction Accuracy</Text>
-            <Text style={[styles.statValue, { color: text, fontSize: 26 }]}>{crossing.predictionAccuracy}%</Text>
-          </View>
-        </View>
-
-        {/* Historical accuracy chart */}
-        {chartData.length >= 2 && (() => {
-          const W = 288, H = 90, PAD = 8;
-          const allVals = chartData.flatMap((d) => [d.predicted, d.actual]);
-          const minV = Math.max(0, Math.min(...allVals) - 5);
-          const maxV = Math.max(...allVals) + 5;
-          const xScale = (i) => PAD + (i / (chartData.length - 1)) * (W - PAD * 2);
-          const yScale = (v) => H - PAD - ((v - minV) / (maxV - minV)) * (H - PAD * 2);
-          const predictPts = chartData.map((d, i) => `${xScale(i)},${yScale(d.predicted)}`).join(' ');
-          const actualPts  = chartData.map((d, i) => `${xScale(i)},${yScale(d.actual)}`).join(' ');
-          return (
-            <>
-              <SectionHeader title="My Prediction Accuracy" dark={dark} />
-              <Card dark={dark}>
-                <View style={{ padding: 16 }}>
-                  <View style={{ flexDirection: 'row', gap: 14, marginBottom: 10 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <View style={{ width: 16, height: 2, backgroundColor: BLUE }} />
-                      <Text style={{ fontSize: 11, color: '#8E8E93' }}>Predicted</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                      <View style={{ width: 16, height: 2, backgroundColor: GREEN }} />
-                      <Text style={{ fontSize: 11, color: '#8E8E93' }}>Actual</Text>
-                    </View>
-                  </View>
-                  <Svg width={W} height={H}>
-                    {/* Baseline */}
-                    <Line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} stroke={dark ? '#48484A' : '#E5E5EA'} strokeWidth="1" />
-                    {/* Predicted line */}
-                    <Polyline points={predictPts} fill="none" stroke={BLUE} strokeWidth="2" strokeDasharray="4 3" />
-                    {/* Actual line */}
-                    <Polyline points={actualPts} fill="none" stroke={GREEN} strokeWidth="2" />
-                    {/* Data point dots */}
-                    {chartData.map((d, i) => (
-                      <React.Fragment key={i}>
-                        <Circle cx={xScale(i)} cy={yScale(d.predicted)} r="3" fill={BLUE} />
-                        <Circle cx={xScale(i)} cy={yScale(d.actual)} r="3" fill={GREEN} />
-                      </React.Fragment>
-                    ))}
-                  </Svg>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-                    {chartData.map((d, i) => (
-                      <Text key={i} style={{ fontSize: 9, color: '#8E8E93', flex: 1, textAlign: 'center' }}>
-                        {`${d.date.getMonth() + 1}/${d.date.getDate()}`}
-                      </Text>
-                    ))}
-                  </View>
-                  <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 8 }}>
-                    Based on {chartData.length} tracked trip{chartData.length !== 1 ? 's' : ''} at this crossing.
-                  </Text>
-                </View>
-              </Card>
-            </>
-          );
-        })()}
 
         {/* Community reports for this crossing */}
         {crossingReports.length > 0 && (
@@ -386,12 +271,6 @@ export default function DetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Report button */}
-        <TouchableOpacity onPress={() => navigation.navigate('Report', { crossing })} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 20, borderRadius: 14, overflow: 'hidden' }}>
-          <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.reportBtn}>
-            <Text style={styles.reportBtnText}>📝 Report Wait Time</Text>
-          </LinearGradient>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
