@@ -62,5 +62,15 @@ target 'CrossETA' do
         end
       end
     end
+
+    # Newer Apple clang (Xcode 26+) rejects fmt's consteval use in C++20 mode
+    # ("Call to consteval function ... is not a constant expression").
+    # Build the fmt pod as C++17 until React Native is upgraded.
+    installer.pods_project.targets.each do |target|
+      next unless target.name == 'fmt'
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      end
+    end
   end
 end
