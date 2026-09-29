@@ -62,9 +62,6 @@ export default function SettingsScreen() {
   const separator = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
   const [openSections, setOpenSections] = useState({
     data: false,
-    analytics: false,
-    moderation: false,
-    predictions: false,
     about: true,
     support: false,
   });
@@ -79,9 +76,6 @@ export default function SettingsScreen() {
     accessibility: ['accessibility', 'text size', 'contrast', 'senior', 'kid'],
     community: ['community', 'display name', 'quiet hours', 'quiet window'],
     data: ['cbp', 'data source', 'refresh', 'cache'],
-    analytics: ['analytics', 'events', 'export', 'clear analytics'],
-    moderation: ['moderation', 'admin'],
-    predictions: ['predictions', 'accuracy'],
     about: ['about', 'version', 'privacy', 'terms', 'attribution'],
     support: ['support', 'feedback', 'rate app'],
   }), []);
@@ -95,9 +89,6 @@ export default function SettingsScreen() {
     sectionVisible('accessibility'),
     sectionVisible('community'),
     sectionVisible('data'),
-    sectionVisible('analytics'),
-    sectionVisible('moderation'),
-    sectionVisible('predictions'),
     sectionVisible('about'),
     sectionVisible('support'),
   ].some(Boolean);
@@ -327,24 +318,6 @@ export default function SettingsScreen() {
         </ToggleSection>
         ) : null}
 
-        {sectionVisible('analytics') ? (
-        <ToggleSection id="analytics" title="Analytics">
-          <View style={[styles.card, { backgroundColor: card }]}>
-            <Row label="Events Tracked (local)" sub="Used to guide product decisions" right={<Text style={{ color: sub, fontSize: 14 }}>{analytics.length}</Text>} />
-            <Row label="Export Analytics" sub="Share JSON snapshot" right={<Text style={{ color: BLUE, fontSize: 20 }}>›</Text>} onPress={exportAnalytics} />
-            <Row label="Clear Analytics" sub="Reset local event history" right={<Text style={{ color: '#FF453A', fontSize: 12, fontWeight: '700' }}>Clear</Text>} onPress={clearAnalytics} last />
-          </View>
-        </ToggleSection>
-        ) : null}
-
-        {sectionVisible('moderation') ? (
-        <ToggleSection id="moderation" title="Moderation">
-          <View style={[styles.card, { backgroundColor: card }]}>
-            <Row label="Admin Mode" sub="Review and restore hidden reports in Community" right={<Toggle value={adminMode} onValueChange={setAdminMode} />} last />
-          </View>
-        </ToggleSection>
-        ) : null}
-
         {sectionVisible('about') ? (
         <ToggleSection id="about" title="About">
           <View style={[styles.card, { backgroundColor: card }]}>
@@ -369,7 +342,7 @@ export default function SettingsScreen() {
         {!visibleSections ? (
           <View style={[styles.emptyState, { backgroundColor: card, borderColor: separator }]}> 
             <Text style={[styles.emptyTitle, { color: text }]}>No results</Text>
-            <Text style={styles.emptySub}>Try searching for terms like "privacy", "quiet", or "analytics".</Text>
+            <Text style={styles.emptySub}>Try searching for terms like "privacy", "quiet", or "dark mode".</Text>
           </View>
         ) : null}
 

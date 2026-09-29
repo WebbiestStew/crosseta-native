@@ -271,6 +271,10 @@ export function AppProvider({ children }) {
           const std = readLane(lanes.standard_lanes);
           const sentri = readLane(lanes.NEXUS_SENTRI_lanes);
           const ready = readLane(lanes.ready_lanes);
+          const ped = readLane(match.pedestrian_lanes?.standard_lanes);
+          const pedReady = readLane(match.pedestrian_lanes?.ready_lanes);
+          const com = readLane(match.commercial_vehicle_lanes?.standard_lanes);
+          const comFast = readLane(match.commercial_vehicle_lanes?.FAST_lanes);
           const wait = std.minutes;
           return {
             ...c,
@@ -280,6 +284,12 @@ export function AppProvider({ children }) {
             sentriWait: sentri.minutes,
             readyWait: ready.minutes,
             laneStatus: std.closed ? 'Lanes closed' : null,
+            portStatus: match.port_status ?? null,
+            hoursText: match.hours ?? null,
+            pedWait: ped.minutes,
+            pedReadyWait: pedReady.minutes,
+            comWait: com.minutes,
+            comFastWait: comFast.minutes,
             trend: wait == null || c.wait == null ? null : wait > c.wait ? 'up' : wait < c.wait ? 'down' : 'stable',
             // Rough estimates from a generic time-of-day curve, not per-crossing history.
             predict1h: estimateWait(wait, 1),

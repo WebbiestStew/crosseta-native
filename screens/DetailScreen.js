@@ -170,6 +170,34 @@ export default function DetailScreen({ route, navigation }) {
           ))}
         </View>
 
+        {/* Other lanes + port status (CBP) */}
+        {crossing.live && (
+          <>
+            <SectionHeader title="Pedestrian & Commercial" dark={dark} />
+            <View style={styles.laneGrid}>
+              {[
+                { label: 'Pedestrian', now: crossing.pedWait },
+                { label: 'Ped. Ready', now: crossing.pedReadyWait },
+                { label: 'Commercial', now: crossing.comWait },
+                { label: 'FAST', now: crossing.comFastWait },
+              ].map((lane) => (
+                <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
+                  <Text style={styles.laneLabel}>{lane.label}</Text>
+                  <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
+                  <Text style={styles.laneUnit}>min</Text>
+                </View>
+              ))}
+            </View>
+            {(crossing.portStatus || crossing.hoursText) && (
+              <Text style={{ fontSize: 12, color: '#8E8E93', marginHorizontal: 16, marginTop: 8 }}>
+                {crossing.portStatus ? `Port ${crossing.portStatus}` : ''}
+                {crossing.portStatus && crossing.hoursText ? ' · ' : ''}
+                {crossing.hoursText ? `Hours: ${crossing.hoursText}` : ''}
+              </Text>
+            )}
+          </>
+        )}
+
         {/* Leave-By Calculator */}
         <SectionHeader title="Leave-By Calculator" dark={dark} />
         <Card dark={dark}>

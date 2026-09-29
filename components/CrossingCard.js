@@ -64,7 +64,7 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             )}
             <View style={[styles.chip, { backgroundColor: stale || !crossing.live ? 'rgba(255,159,10,0.15)' : (dark ? '#3A3A3C' : '#F2F2F7') }]}>
               <Text style={[styles.chipLabel, { color: stale || !crossing.live ? ORANGE : (dark ? '#aaa' : '#555') }]}>
-                {crossing.laneStatus ?? (crossing.live ? `${age}m ago` : 'No live data')}
+                {crossing.laneStatus ?? (/closed/i.test(crossing.portStatus ?? '') ? 'Port closed' : crossing.live ? `${age}m ago` : 'No live data')}
               </Text>
             </View>
             {closingSoon && (
