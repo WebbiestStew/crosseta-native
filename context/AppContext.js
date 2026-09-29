@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { estimateWait, ALL_CROSSINGS, SEED_REPORTS, SEED_TRIPS, BLUE } from '../data';
+import * as Location from 'expo-location';
+import { estimateWait, estimateDriveMin, ALL_CROSSINGS, SEED_REPORTS, SEED_TRIPS, BLUE } from '../data';
+import { summarizeCrossing } from '../cbp.mjs';
+import { loadHistory, saveHistory, recordSamples, typicalWait } from '../history';
+import { api } from '../api';
+import { pushWidgetSnapshot } from '../sharedWaits';
+import { useServerSync } from './useServerSync';
 import { t, resolveLanguage, setLanguage } from '../i18n';
 
 Notifications.setNotificationHandler({
@@ -11,10 +17,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
-
-// Anonymous trip-duration upload. Keep false until https://api.crosseta.com/v1/trips is live;
-// enabling it also requires updating PrivacyInfo.xcprivacy and the App Store privacy answers.
-const CONTRIBUTE_TRIPS = false;
 
 const KEYS = {
   lang:             '@crosseta/lang',
@@ -30,8 +32,8 @@ const KEYS = {
   trips:            '@crosseta/trips',
   activeCrossing:   '@crosseta/activeCrossing',
   completedTrips:   '@crosseta/completedTrips',
+  laneType:         '@crosseta/laneType',         // standard | sentri | ready
   lowAlerts:        '@crosseta/lowAlerts',        // { [crossingId]: boolean }
-  checklist:        '@crosseta/checklist',        // { [crossingId]: { [itemId]: boolean } }
   weeklyNotifSent:  '@crosseta/weeklyNotifSent',  // { [crossingId]: ISO date string }
   cachedCrossings:  '@crosseta/cachedCrossings_v2',  // last successful CBP payload merged with seeds
   profile:          '@crosseta/profile',          // { displayName, initials }
@@ -45,19 +47,7 @@ const KEYS = {
   savedTripTemplates: '@crosseta/savedTripTemplates',   // [{ id, name, crossingId, laneType, threshold, arrival }]
 };
 
-// Normalize a string for fuzzy CBP name matching
-// CBP lane block -> { minutes: number|null, closed: bool }. "no delay" is a real 0,
-// not a missing value; blank/unavailable/closed lanes are null (never a stale number).
-const readLane = (lane) => {
-  if (!lane) return { minutes: null, closed: false };
-  const status = String(lane.operational_status ?? '').toLowerCase();
-  if (status.includes('closed')) return { minutes: null, closed: true };
-  if (status.includes('no delay')) return { minutes: 0, closed: false };
-  const n = parseInt(lane.delay_minutes, 10);
-  return { minutes: Number.isFinite(n) ? n : null, closed: false };
-};
-
-const normName = (s) => s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+const STATIC_CROSSING_KEYS = ['name', 'city', 'country', 'region', 'is24h', 'hours', 'driveMin', 'border', 'flag'];
 
 const getInitials = (name = 'You') => {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -87,8 +77,6 @@ export function AppProvider({ children }) {
   const [completedTrips, setCompletedTrips] = useState([]);
   /** lowAlerts: per-crossing toggle — alert when wait drops BELOW threshold */
   const [lowAlerts, setLowAlerts] = useState({});
-  /** checklist: { [crossingId]: { [itemKey]: boolean } } */
-  const [checklist, setChecklist] = useState({});
   /** weeklyNotifSent: tracks the last ISO date we sent a weekly best-time alert per crossing */
   const [weeklyNotifSent, setWeeklyNotifSent] = useState({});
   const [profile, setProfile] = useState({ displayName: 'You', initials: 'YO' });
@@ -112,6 +100,21 @@ export function AppProvider({ children }) {
   const notifCooldown = useRef({});
   /** Previous wait values — used by drop-alert logic to detect a decrease */
   const prevWaits = useRef({});
+  const historyRef = useRef({});          // see ../history.js
+  const lastRecordedFetch = useRef(0);
+  const [laneType, setLaneTypeState] = useState('standard');
+  const [userPos, setUserPos] = useState(null);   // { latitude, longitude } once location is known
+
+  // Optional server features (history, push alerts, community). No-ops without a server URL.
+  const server = useServerSync({
+    hydrated, favorites, notifSettings, thresholds, lowAlerts, quietHours, lang,
+    historyRef, setReports, setVotes,
+  });
+
+  // Keep the home-screen widget in step with the starred crossings and their latest waits.
+  useEffect(() => {
+    if (hydrated) pushWidgetSnapshot({ favorites, crossings, lane: laneType, lang });
+  }, [hydrated, favorites, crossings, laneType, lang]);
 
   // ─── Hydrate state from AsyncStorage on mount ─────────────────────────
   useEffect(() => {
@@ -128,6 +131,7 @@ export function AppProvider({ children }) {
           setLangState(l);
         }
         if (stored[KEYS.favorites])                  setFavorites(stored[KEYS.favorites]);
+        if (stored[KEYS.laneType])                   setLaneTypeState(stored[KEYS.laneType]);
         if (stored[KEYS.dark]        !== undefined)  setDark(stored[KEYS.dark]);
         if (stored[KEYS.haptics]     !== undefined)  setHaptics(stored[KEYS.haptics]);
         if (stored[KEYS.notifSettings])              setNotifSettings(stored[KEYS.notifSettings]);
@@ -141,7 +145,6 @@ export function AppProvider({ children }) {
         if (stored[KEYS.activeCrossing] !== undefined)  setActiveCrossing(stored[KEYS.activeCrossing]);
         if (stored[KEYS.completedTrips])                setCompletedTrips(stored[KEYS.completedTrips]);
         if (stored[KEYS.lowAlerts])                     setLowAlerts(stored[KEYS.lowAlerts]);
-        if (stored[KEYS.checklist])                     setChecklist(stored[KEYS.checklist]);
         if (stored[KEYS.weeklyNotifSent])               setWeeklyNotifSent(stored[KEYS.weeklyNotifSent]);
         if (stored[KEYS.profile])                       setProfile(stored[KEYS.profile]);
         if (stored[KEYS.reportMeta])                    setReportMeta(stored[KEYS.reportMeta]);
@@ -153,8 +156,20 @@ export function AppProvider({ children }) {
         if (stored[KEYS.notificationProfile])           setNotificationProfileState(stored[KEYS.notificationProfile]);
         if (stored[KEYS.savedTripTemplates])            setSavedTripTemplates(stored[KEYS.savedTripTemplates]);
         // Restore cached crossing wait data so the list isn't all-zero on first open
-        if (stored[KEYS.cachedCrossings])               setCrossings(stored[KEYS.cachedCrossings]);
+        // Only live fields come from the cache; static fields (name, city, region, hours…)
+        // always come from the current build so app updates and data fixes take effect.
+        if (Array.isArray(stored[KEYS.cachedCrossings])) {
+          const cached = new Map(stored[KEYS.cachedCrossings].map((c) => [c.id, c]));
+          setCrossings(ALL_CROSSINGS.map((base) => {
+            const c = cached.get(base.id);
+            if (!c) return base;
+            const fixed = Object.fromEntries(STATIC_CROSSING_KEYS.map((k) => [k, base[k]]));
+            return { ...c, ...fixed };
+          }));
+        }
       } catch { /* fall back to defaults silently */ }
+      historyRef.current = await loadHistory();
+      locate();   // silent: only succeeds if permission was already granted
       setHydrated(true);
     })();
   }, []);
@@ -163,6 +178,7 @@ export function AppProvider({ children }) {
   const save = (key, val) => AsyncStorage.setItem(key, JSON.stringify(val)).catch(() => {});
   useEffect(() => { if (hydrated) save(KEYS.favorites,     favorites);     }, [favorites,     hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.dark,          dark);           }, [dark,           hydrated]);
+  useEffect(() => { if (hydrated) save(KEYS.laneType,      laneType);       }, [laneType,       hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.haptics,       haptics);        }, [haptics,        hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.notifSettings, notifSettings);  }, [notifSettings,  hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.thresholds,    thresholds);     }, [thresholds,     hydrated]);
@@ -174,7 +190,6 @@ export function AppProvider({ children }) {
   useEffect(() => { if (hydrated) save(KEYS.activeCrossing,  activeCrossing);  }, [activeCrossing,  hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.completedTrips,  completedTrips);  }, [completedTrips,  hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.lowAlerts,       lowAlerts);       }, [lowAlerts,       hydrated]);
-  useEffect(() => { if (hydrated) save(KEYS.checklist,       checklist);       }, [checklist,       hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.weeklyNotifSent, weeklyNotifSent); }, [weeklyNotifSent, hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.profile,         profile);         }, [profile,         hydrated]);
   useEffect(() => { if (hydrated) save(KEYS.reportMeta,      reportMeta);      }, [reportMeta,      hydrated]);
@@ -218,7 +233,8 @@ export function AppProvider({ children }) {
       const withinCooldown = now - (notifCooldown.current[cooldownKey] ?? 0) < 15 * 60 * 1000;
 
       // ── HIGH alert: wait exceeds threshold ──
-      if (c.wait > threshold && !withinCooldown && !isInQuietHours()) {
+      // (When the server is delivering this device's alerts, skip the local copy to avoid duplicates.)
+      if (!server.serverPush && c.wait > threshold && !withinCooldown && !isInQuietHours()) {
         notifCooldown.current[cooldownKey] = now;
         Notifications.scheduleNotificationAsync({
           content: {
@@ -235,6 +251,7 @@ export function AppProvider({ children }) {
       const dropKey = `${c.id}_drop`;
       const dropCooled = now - (notifCooldown.current[dropKey] ?? 0) < 15 * 60 * 1000;
       if (
+        !server.serverPush &&
         lowAlerts[c.id] &&
         prevWait !== undefined &&
         prevWait > threshold &&
@@ -265,31 +282,23 @@ export function AppProvider({ children }) {
       const data = await res.json();
       if (!Array.isArray(data)) return;
       const now = Date.now();
+      const nowDate = new Date(now);
+      const at = (h) => new Date(now + h * 3600 * 1000);
+      // Prefer this device's recorded pattern for the target hour; fall back to the
+      // generic curve (flagged via predBasis so the UI can say which one it is showing).
+      const predict = (id, current, hours) =>
+        typicalWait(historyRef.current, id, at(hours)) ?? estimateWait(current, hours);
       setCrossings((prev) => {
         const updated = prev.map((c) => {
-          const cn = normName(c.name);
-          const cityBase = normName(c.city.split(',')[0]);
-          const isExact = (d) => d.port_name && normName(d.port_name) === cn;
-          const isFuzzy = (d) => {
-            if (!d.port_name) return false;
-            const pn = normName(d.port_name);
-            const xn = d.crossing_name ? normName(d.crossing_name) : '';
-            return (
-              cn.includes(pn) || pn.includes(cn) ||
-              cityBase === pn ||
-              (xn && (cn.includes(xn) || xn.includes(cn)))
-            );
-          };
-          const match = data.find(isExact) ?? data.find(isFuzzy);
-          if (!match) return c;
-          const lanes = match.passenger_vehicle_lanes ?? {};
-          const std = readLane(lanes.standard_lanes);
-          const sentri = readLane(lanes.NEXUS_SENTRI_lanes);
-          const ready = readLane(lanes.ready_lanes);
-          const ped = readLane(match.pedestrian_lanes?.standard_lanes);
-          const pedReady = readLane(match.pedestrian_lanes?.ready_lanes);
-          const com = readLane(match.commercial_vehicle_lanes?.standard_lanes);
-          const comFast = readLane(match.commercial_vehicle_lanes?.FAST_lanes);
+          const m = summarizeCrossing(data, c, prev);
+          if (!m) return c;
+          const std = m.std;
+          const sentri = m.sentri;
+          const ready = m.ready;
+          const ped = m.ped;
+          const pedReady = m.pedReady;
+          const com = m.com;
+          const comFast = m.comFast;
           const wait = std.minutes;
           return {
             ...c,
@@ -299,16 +308,21 @@ export function AppProvider({ children }) {
             sentriWait: sentri.minutes,
             readyWait: ready.minutes,
             laneStatus: std.closed ? 'Lanes closed' : null,
-            portStatus: match.port_status ?? null,
-            hoursText: match.hours ?? null,
+            feedNote: m.feedNote,
+            cbpUpdatedAt: m.cbpUpdatedAt,
+            bridges: m.bridges,
+            via: m.via,
+            portStatus: m.portStatus,
+            hoursText: m.hoursText,
             pedWait: ped.minutes,
             pedReadyWait: pedReady.minutes,
             comWait: com.minutes,
             comFastWait: comFast.minutes,
             trend: wait == null || c.wait == null ? null : wait > c.wait ? 'up' : wait < c.wait ? 'down' : 'stable',
             // Rough estimates from a generic time-of-day curve, not per-crossing history.
-            predict1h: estimateWait(wait, 1),
-            predict3h: estimateWait(wait, 3),
+            predBasis: typicalWait(historyRef.current, c.id, at(1)) != null ? 'history' : 'generic',
+            predict1h: wait == null ? null : predict(c.id, wait, 1),
+            predict3h: wait == null ? null : predict(c.id, wait, 3),
             sentriPredict1h: estimateWait(sentri.minutes, 1),
             sentriPredict3h: estimateWait(sentri.minutes, 3),
             readyPredict1h: estimateWait(ready.minutes, 1),
@@ -317,6 +331,11 @@ export function AppProvider({ children }) {
         });
         // Persist updated crossing data as offline cache
         AsyncStorage.setItem(KEYS.cachedCrossings, JSON.stringify(updated)).catch(() => {});
+        // Fold this fetch into the on-device history (guarded so a re-run of the updater can't double count)
+        if (lastRecordedFetch.current !== now) {
+          lastRecordedFetch.current = now;
+          saveHistory(recordSamples(historyRef.current, updated, nowDate));
+        }
         return updated;
       });
       setLastFetchTime(Date.now());
@@ -328,6 +347,34 @@ export function AppProvider({ children }) {
     const interval = setInterval(fetch_cbp, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // ─── Location (for drive-time estimates and "near me") ────────────────
+  // prompt=false never shows a permission dialog; it only reads a position if already allowed.
+  const locate = async ({ prompt = false } = {}) => {
+    try {
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        if (!prompt) return null;
+        perm = await Location.requestForegroundPermissionsAsync();
+        if (perm.status !== 'granted') return null;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const next = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      setUserPos(next);
+      return next;
+    } catch {
+      return null;
+    }
+  };
+
+  const clearHistory = () => {
+    historyRef.current = {};
+    saveHistory(historyRef.current);
+    setCrossings((prev) => prev.map((c) => ({ ...c, predBasis: 'generic' })));
+  };
+
+  /** Estimated minutes to drive to a crossing from the user's position, or null if unknown. */
+  const driveMinFor = (crossing) => estimateDriveMin(userPos, crossing);
 
   // ─── Actions ─────────────────────────────────────────────────────────
   const toggleStar = (id) =>
@@ -354,6 +401,17 @@ export function AppProvider({ children }) {
     );
     if (isDuplicate) {
       return { ok: false, error: t('A very similar report was just posted. Upvote it instead.') };
+    }
+
+    // With a server, the report is posted there (it moderates and shares it) and the list is refreshed.
+    if (api.available) {
+      return server.submitReport(report, profile.displayName || 'Traveler').then((res) => {
+        if (res.ok) {
+          setReportMeta((prev) => ({ ...prev, lastPostedByCrossing: { ...(prev.lastPostedByCrossing ?? {}), [report.crossingId]: now } }));
+          trackEvent('submit_report', { crossingId: report.crossingId, lane: report.lane, wait: report.wait });
+        }
+        return res;
+      });
     }
 
     const created = {
@@ -383,12 +441,12 @@ export function AppProvider({ children }) {
     return { ok: true, id: created.id };
   };
 
-  const vote = (reportId, dir) =>
-    setVotes((prev) => {
-      const nextVal = prev[reportId] === dir ? null : dir;
-      trackEvent('vote_report', { reportId, vote: nextVal });
-      return { ...prev, [reportId]: nextVal };
-    });
+  const vote = (reportId, dir) => {
+    const nextVal = votes[reportId] === dir ? null : dir;
+    trackEvent('vote_report', { reportId, vote: nextVal });
+    setVotes((prev) => ({ ...prev, [reportId]: nextVal }));
+    if (api.available) server.voteRemote(reportId, nextVal);
+  };
 
   const setFeedback = (reportId, val) =>
     {
@@ -413,6 +471,7 @@ export function AppProvider({ children }) {
       };
     }));
     trackEvent('flag_report', { reportId });
+    if (api.available) server.flagRemote(reportId);
   };
 
   const setDisplayName = (displayName) => {
@@ -490,26 +549,8 @@ export function AppProvider({ children }) {
         };
 
         setCompletedTrips((pt) => [trip, ...pt]);
+        server.uploadTrip(trip);   // only if the user opted in to sharing trip times
         trackEvent('complete_trip', { crossingId: trip.crossingId, laneType: trip.laneType, actualWait: trip.actualWait });
-
-        // ── Data contribution: fire-and-forget POST ───────────────────────
-        // Disabled until the backend endpoint exists (see CONTRIBUTE_TRIPS).
-        if (CONTRIBUTE_TRIPS) (async () => {
-          try {
-            await fetch('https://api.crosseta.com/v1/trips', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                crossingId: trip.crossingId,
-                laneType:   trip.laneType,
-                startTime:  trip.startTime,
-                endTime:    trip.endTime,
-                actualWaitMinutes: trip.actualWait,
-                appVersion: '1.3.0',
-              }),
-            });
-          } catch { /* silent — failure never blocks the user */ }
-        })();
       }
 
       return null;
@@ -539,24 +580,6 @@ export function AppProvider({ children }) {
   /** Toggle the "alert when wait drops" flag for a crossing. */
   const toggleLowAlert = (id) =>
     setLowAlerts((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  /**
-   * Toggle a single checklist item for a crossing.
-   * @param {string} crossingId
-   * @param {string} itemKey
-   */
-  const toggleChecklistItem = (crossingId, itemKey) =>
-    setChecklist((prev) => ({
-      ...prev,
-      [crossingId]: {
-        ...(prev[crossingId] ?? {}),
-        [itemKey]: !(prev[crossingId]?.[itemKey] ?? false),
-      },
-    }));
-
-  /** Reset all checklist items for a crossing to unchecked. */
-  const resetChecklist = (crossingId) =>
-    setChecklist((prev) => ({ ...prev, [crossingId]: {} }));
 
   const completeOnboarding = async (selectedIds) => {
     setFavorites(selectedIds);
@@ -654,8 +677,14 @@ export function AppProvider({ children }) {
       activeCrossing, completedTrips,
       startTracking, stopTracking, updateActiveCrossing, clearCompletedTrips,
       lowAlerts, toggleLowAlert,
-      checklist, toggleChecklistItem, resetChecklist,
       lastFetchTime, hydrated, fetchCBP: fetch_cbp,
+      laneType, setLaneType: setLaneTypeState,
+      apiAvailable: api.available,
+      communityWaits: server.communityWaits, serverPush: server.serverPush,
+      shareTrips: server.shareTrips, setShareTrips: server.setShareTrips,
+      loadServerHistory: server.loadServerHistory, refreshReports: server.refreshReports,
+      deleteMyData: server.deleteMyData, historyTick: server.historyTick,
+      userPos, locate, driveMinFor, getHistory: () => historyRef.current, clearHistory,
       profile, setDisplayName,
       quietHours, setQuietHours,
       analytics, trackEvent,

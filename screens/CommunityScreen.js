@@ -12,7 +12,7 @@ const FILTERS = ['All', '🇲🇽 Mexico', '🇨🇦 Canada'];
 const SORT_OPTIONS = ['Newest', 'Most Helpful', 'Crossing'];
 
 export default function CommunityScreen({ navigation }) {
-  const { dark, reports, votes, feedbackDone, vote, setFeedback, flagReport, restoreReport, adminMode } = useApp();
+  const { dark, reports, votes, feedbackDone, vote, setFeedback, flagReport, restoreReport, adminMode, apiAvailable } = useApp();
   const [region, setRegion] = useState('All');
   const [sort, setSort] = useState('Newest');
 
@@ -79,7 +79,9 @@ export default function CommunityScreen({ navigation }) {
         </View>
 
         <Text style={{ fontSize: 12, color: sub, textAlign: 'center', marginHorizontal: 24, marginTop: 12 }}>
-          {t("Preview: reports are saved on this device only and aren't shared with other users yet.")}
+          {apiAvailable
+            ? t('Shared with other travelers. Links and contact details are not allowed, and reports flagged by 3 people are hidden.')
+            : t("Preview: reports are saved on this device only and aren't shared with other users yet.")}
         </Text>
 
         {/* Reports */}

@@ -35,6 +35,12 @@
         "VIBRATE"
       ]
     },
+    "extra": {
+      "apiUrl": "",
+      "eas": {
+        "projectId": ""
+      }
+    },
     "plugins": [
       "expo-asset",
       "expo-font",

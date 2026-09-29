@@ -14,7 +14,7 @@ const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINS = ['00', '15', '30', '45'];
 
 export default function TripPlanningScreen({ navigation }) {
-  const { crossings, dark, savedTripTemplates, saveTripTemplate, deleteTripTemplate } = useApp();
+  const { crossings, dark, savedTripTemplates, saveTripTemplate, deleteTripTemplate, driveMinFor } = useApp();
   const c = colors(dark);
 
   const [selectedId, setSelectedId] = useState(null);
@@ -27,7 +27,8 @@ export default function TripPlanningScreen({ navigation }) {
 
   const arrH = (parseInt(arrHour) % 12) + (arrAmPm === 'PM' ? 12 : 0);
   const arrTotalMin = arrH * 60 + parseInt(arrMin);
-  const totalTrip = crossing ? (crossing.driveMin || 0) + (crossing.wait ?? 0) : 0;
+  const driveMin = crossing ? driveMinFor(crossing) : null;
+  const totalTrip = crossing ? (driveMin ?? 0) + (crossing.wait ?? 0) : 0;
   const leaveByMin = arrTotalMin - totalTrip;
   const lbH = Math.floor(((leaveByMin % 1440) + 1440) % 1440 / 60);
   const lbM = ((leaveByMin % 60) + 60) % 60;
@@ -48,7 +49,7 @@ export default function TripPlanningScreen({ navigation }) {
           body: `${crossing.wait != null ? t('Wait when set: {n} min.', { n: crossing.wait }) + ' ' : ''}${t('Leave now to arrive by {time}.', { time: `${arrHour}:${arrMin} ${arrAmPm}` })}`,
           data: { crossingId: crossing.id },
         },
-        trigger: { seconds },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds },
       });
       setNotifScheduled(true);
     } catch (_) {}
@@ -167,7 +168,7 @@ export default function TripPlanningScreen({ navigation }) {
               <View style={{ padding: 16 }}>
                 <View style={styles.planGrid}>
                   {[
-                    { l: t('Drive Time'), v: t('{n} min', { n: crossing.driveMin || 0 }), color: c.text },
+                    { l: t('Drive Time'), v: driveMin != null ? t('~{n} min', { n: driveMin }) : '—', color: c.text },
                     { l: t('Border Wait'), v: crossing.wait != null ? t('{n} min', { n: crossing.wait }) : '—', color: waitColor(crossing.wait) },
                     { l: t('Total Trip'), v: t('{n} min', { n: totalTrip }), color: c.text },
                     { l: t('🚗 Leave By'), v: leaveByStr, color: BLUE },

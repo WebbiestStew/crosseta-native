@@ -1,15 +1,18 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { WaitPill } from './UI';
-import { waitColor, BLUE, GREEN, ORANGE, RED, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
+import { waitColor, BLUE, GREEN, ORANGE, RED, getTimeUntilClose, fmtMin, dataAgeMin, isStale, timeAgo, laneWait, laneLabel, lanePredict } from '../data';
 import { t } from '../i18n';
 
-export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, distanceMi }) {
+export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, distanceMi, driveMin, lane = 'standard', measured }) {
   const trendIcon = crossing.trend === 'up' ? '↑' : crossing.trend === 'down' ? '↓' : '→';
   const trendWord = crossing.trend === 'up' ? t('Rising') : crossing.trend === 'down' ? t('Dropping') : t('Steady');
   const trendColor = crossing.trend === 'up' ? RED : crossing.trend === 'down' ? GREEN : '#8E8E93';
   const age = dataAgeMin(crossing);
-  const stale = age != null && age > 15;
+  const stale = isStale(crossing);
+  const lw = laneWait(crossing, lane);
+  const p1 = lanePredict(crossing, lw.lane, 1);
+  const p3 = lanePredict(crossing, lw.lane, 3);
   const card = dark ? '#2C2C2E' : '#FFFFFF';
   const text = dark ? '#FFFFFF' : '#000000';
 
@@ -44,7 +47,7 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
           </View>
           <Text style={styles.subtitle} numberOfLines={1}>
             {crossing.city}
-            {crossing.driveMin > 0 ? ` · ${t('{n}m drive', { n: crossing.driveMin })}` : ''}
+            {driveMin != null ? ` · ${t('~{n}m drive', { n: driveMin })}` : ''}
             {distanceMi != null ? ` · ${distanceMi < 10 ? distanceMi.toFixed(1) : Math.round(distanceMi)} mi` : ''}
           </Text>
           {/* Chips */}
@@ -52,22 +55,27 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             {crossing.live && (
               <View style={[styles.chip, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7' }]}>
                 <Text style={[styles.chipLabel, { color: dark ? '#aaa' : '#555' }]}>
-                  {t('Est. +1h')} <Text style={{ color: waitColor(crossing.predict1h), fontWeight: '700' }}>{fmtMin(crossing.predict1h)}</Text>
+                  {t('Est. +1h')} <Text style={{ color: waitColor(p1), fontWeight: '700' }}>{fmtMin(p1)}</Text>
                 </Text>
               </View>
             )}
             {crossing.live && (
               <View style={[styles.chip, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7' }]}>
                 <Text style={[styles.chipLabel, { color: dark ? '#aaa' : '#555' }]}>
-                  {t('Est. +3h')} <Text style={{ color: waitColor(crossing.predict3h), fontWeight: '700' }}>{fmtMin(crossing.predict3h)}</Text>
+                  {t('Est. +3h')} <Text style={{ color: waitColor(p3), fontWeight: '700' }}>{fmtMin(p3)}</Text>
                 </Text>
               </View>
             )}
             <View style={[styles.chip, { backgroundColor: stale || !crossing.live ? 'rgba(255,159,10,0.15)' : (dark ? '#3A3A3C' : '#F2F2F7') }]}>
               <Text style={[styles.chipLabel, { color: stale || !crossing.live ? ORANGE : (dark ? '#aaa' : '#555') }]}>
-                {crossing.laneStatus ? t(crossing.laneStatus) : (/closed/i.test(crossing.portStatus ?? '') ? t('Port closed') : crossing.live ? t('{n}m ago', { n: age }) : t('No live data'))}
+                {crossing.laneStatus ? t(crossing.laneStatus) : (/closed/i.test(crossing.portStatus ?? '') ? t('Port closed') : crossing.live ? (stale ? `⚠️ ${timeAgo(age)}` : timeAgo(age)) : /pending/i.test(crossing.feedNote ?? '') ? t('CBP: update pending') : t('No live data'))}
               </Text>
             </View>
+            {measured ? (
+              <View style={[styles.chip, { backgroundColor: 'rgba(0,122,255,0.12)' }]}>
+                <Text style={[styles.chipLabel, { color: BLUE, fontWeight: '700' }]}>👥 {t('{n}m by drivers', { n: measured.minutes })}</Text>
+              </View>
+            ) : null}
             {closingSoon && (
               <View style={[styles.chip, { backgroundColor: 'rgba(255,159,10,0.15)' }]}>
                 <Text style={[styles.chipLabel, { color: ORANGE, fontWeight: '700' }]}>⏰ {closeLabel}</Text>
@@ -78,7 +86,12 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
 
         {/* Right side */}
         <View style={styles.rightSide}>
-          <WaitPill wait={crossing.wait} />
+          <WaitPill wait={lw.wait} />
+          {lane !== 'standard' && lw.wait != null && (
+            <Text style={{ fontSize: 10, color: '#8E8E93', fontWeight: '600' }}>
+              {lw.fellBack ? t('Standard') : t(laneLabel(lane, crossing.border))}
+            </Text>
+          )}
           <View style={styles.starRow}>
             <TouchableOpacity onPress={() => onStar(crossing.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ fontSize: 20 }}>{isFav ? '⭐' : '☆'}</Text>

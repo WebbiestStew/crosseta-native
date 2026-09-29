@@ -13,7 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { useLineTracker } from '../hooks/useLineTracker';
-import { colors, BLUE, GREEN, ORANGE, RED, fmtMin } from '../data';
+import { colors, BLUE, GREEN, ORANGE, RED, fmtMin, crossingTo } from '../data';
 import { Card, BigSparkline, GlassSurface } from '../components/UI';
 import { t } from '../i18n';
 
@@ -32,9 +32,8 @@ function statusMeta(status, distanceMoved) {
   if (status === 'done')     return { label: 'Cleared!',           color: GREEN,  emoji: '✅' };
   if (status === 'clearing') return { label: 'Almost Through!',    color: GREEN,  emoji: '🏁' };
   if (status === 'moving')   return { label: 'Movement Detected',  color: ORANGE, emoji: '🚗' };
-  // queued — distinguish "waiting for GPS" vs confirmed in line
-  if (distanceMoved === 0)   return { label: 'In Queue',           color: BLUE,   emoji: '🔵' };
-  return                            { label: 'In Queue',           color: BLUE,   emoji: '🔵' };
+  // queued — the pulsing dot already signals this state, so no emoji
+  return                            { label: 'In Queue',           color: BLUE,   emoji: '' };
 }
 
 /**
@@ -139,7 +138,7 @@ export default function InLineScreen({ navigation }) {
                 {crossing.name}
               </Text>
               <Text style={[styles.crossingCity, { color: c.subtext }]}>
-                {crossing.city} → {crossing.country}
+                {crossing.city} → {crossingTo(crossing)}
               </Text>
             </View>
             <View style={[styles.laneBadge, { backgroundColor: LANE_COLORS[laneType] }]}>
@@ -168,7 +167,7 @@ export default function InLineScreen({ navigation }) {
               <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
             </View>
             <Text style={[styles.statusLabel, { color: meta.color }]}>
-              {meta.emoji}  {t(meta.label)}
+              {meta.emoji ? `${meta.emoji}  ` : ''}{t(meta.label)}
             </Text>
           </View>
 

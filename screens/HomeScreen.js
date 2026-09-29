@@ -1,12 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, SafeAreaView, RefreshControl,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, waitColor, timeAgo, isOpenNow, CROSSING_COORDS, byWaitAsc } from '../data';
+import { BLUE, GREEN, ORANGE, waitColor, timeAgo, isOpenNow, CROSSING_COORDS, distanceMi, isStale, laneWait, laneLabel, LANE_KEYS } from '../data';
 import { PillBtn, SectionHeader, WaitPill, Sparkline } from '../components/UI';
 import CrossingCard from '../components/CrossingCard';
 import SkeletonCard from '../components/SkeletonCard';
@@ -15,15 +14,18 @@ import { t } from '../i18n';
 export default function HomeScreen({ navigation }) {
   const {
     crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP, trackEvent,
-    uiPrefs, lastFetchTime,
+    lastFetchTime, userPos, locate, driveMinFor, laneType, setLaneType, communityWaits,
   } = useApp();
+  // Measured wait (from drivers' tracked trips) for the user's lane, else standard.
+  const measuredFor = (c) => communityWaits?.[c.id]?.[laneType] ?? communityWaits?.[c.id]?.standard ?? null;
+  const lw = (c) => laneWait(c, laneType).wait;
+  const byLaneWait = (a, b) => (lw(a) ?? Infinity) - (lw(b) ?? Infinity);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [sort, setSort] = useState('default');   // 'default' | 'waitAsc' | 'waitDesc' | 'name' | 'nearMe'
   const [openOnly, setOpenOnly] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [nearMeDistances, setNearMeDistances] = useState(null); // { [id]: miles }
   const [loadingNearMe, setLoadingNearMe] = useState(false);
   const regions = [...new Set(crossings.map((c) => c.region))];
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
@@ -31,39 +33,23 @@ export default function HomeScreen({ navigation }) {
   const text = dark ? '#fff' : '#000';
   const inputBg = dark ? '#3A3A3C' : '#E5E5EA';
 
-  const haversineKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
+  const nearMeDistances = useMemo(() => {
+    if (sort !== 'nearMe' || !userPos) return null;
+    const d = {};
+    crossings.forEach((c) => {
+      const coords = CROSSING_COORDS[c.id];
+      if (coords) d[c.id] = distanceMi(userPos, coords);
+    });
+    return d;
+  }, [sort, userPos, crossings]);
 
   const toggleNearMe = useCallback(async () => {
-    if (sort === 'nearMe') {
-      setSort('default');
-      setNearMeDistances(null);
-      return;
-    }
+    if (sort === 'nearMe') { setSort('default'); return; }
     setLoadingNearMe(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') { setLoadingNearMe(false); return; }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const { latitude, longitude } = pos.coords;
-      const distances = {};
-      crossings.forEach((c) => {
-        const coords = CROSSING_COORDS[c.id];
-        if (coords) {
-          distances[c.id] = haversineKm(latitude, longitude, coords.latitude, coords.longitude) * 0.621371;
-        }
-      });
-      setNearMeDistances(distances);
-      setSort('nearMe');
-    } catch (e) { /* permission denied silently */ }
+    const pos = userPos ?? await locate({ prompt: true });
     setLoadingNearMe(false);
-  }, [sort, crossings]);
+    if (pos) setSort('nearMe');
+  }, [sort, userPos, locate]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -73,8 +59,8 @@ export default function HomeScreen({ navigation }) {
 
   const applySort = (arr) => {
     switch (sort) {
-      case 'waitAsc':  return [...arr].sort(byWaitAsc);
-      case 'waitDesc': return [...arr].sort((a, b) => (b.wait ?? -1) - (a.wait ?? -1));
+      case 'waitAsc':  return [...arr].sort(byLaneWait);
+      case 'waitDesc': return [...arr].sort((a, b) => (lw(b) ?? -1) - (lw(a) ?? -1));
       case 'name':     return [...arr].sort((a, b) => a.name.localeCompare(b.name));
       case 'nearMe':   return nearMeDistances
         ? [...arr].sort((a, b) => (nearMeDistances[a.id] ?? 99999) - (nearMeDistances[b.id] ?? 99999))
@@ -101,7 +87,20 @@ export default function HomeScreen({ navigation }) {
 
   const favCrossings = filtered.filter((c) => favorites.includes(c.id));
   const otherCrossings = filtered.filter((c) => !favorites.includes(c.id));
-  const bestCrossing = filtered.filter((c) => c.live).sort(byWaitAsc)[0];
+  // With a known position, "best" means shortest drive + wait among open crossings within
+  // 250 miles; without one it is simply the lowest current wait.
+  const bestCrossing = useMemo(() => {
+    // Skip readings CBP hasn't refreshed in 3 hours: a stale 0 shouldn't be crowned "best".
+    const live = filtered.filter((c) => lw(c) != null && (c.is24h || isOpenNow(c.hours)) && !isStale(c, 180));
+    if (userPos) {
+      const near = live
+        .map((c) => ({ c, drive: driveMinFor(c), miles: CROSSING_COORDS[c.id] ? distanceMi(userPos, CROSSING_COORDS[c.id]) : Infinity }))
+        .filter((x) => x.drive != null && x.miles <= 250)
+        .sort((a, b) => (a.drive + lw(a.c)) - (b.drive + lw(b.c)))[0];
+      if (near) return { ...near.c, _drive: near.drive };
+    }
+    return [...live].sort(byLaneWait)[0];
+  }, [filtered, userPos, laneType]);
 
   const isLoading = !hydrated;
 
@@ -143,16 +142,19 @@ export default function HomeScreen({ navigation }) {
             style={[styles.searchInput, { color: text }]}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
               <Text style={{ color: '#8E8E93', fontSize: 16 }}>✕</Text>
             </TouchableOpacity>
           )}
-        </View>
-        {!uiPrefs.simpleMode && (
-          <TouchableOpacity style={[styles.advancedToggle, { backgroundColor: dark ? '#2C2C2E' : '#E9F3FF' }]} onPress={() => setShowAdvanced((v) => !v)}>
-            <Text style={[styles.advancedToggleText, { color: BLUE }]}>{showAdvanced ? t('Hide Advanced Filters') : t('Show Advanced Filters')}</Text>
+          <TouchableOpacity
+            onPress={() => setShowAdvanced((v) => !v)}
+            hitSlop={8}
+            accessibilityLabel={showAdvanced ? t('Hide Advanced Filters') : t('Show Advanced Filters')}
+            style={[styles.filterBtn, showAdvanced && { backgroundColor: BLUE }]}
+          >
+            <Text style={{ fontSize: 15, color: showAdvanced ? '#fff' : BLUE }}>⚙︎</Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
       <ScrollView
@@ -172,29 +174,27 @@ export default function HomeScreen({ navigation }) {
         {!isLoading && bestCrossing && (
           <TouchableOpacity onPress={() => navigation.navigate('Detail', { crossing: bestCrossing })} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 12, borderRadius: 18, overflow: 'hidden' }}>
             <LinearGradient colors={['#007AFF', '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bestBanner}>
-              <Text style={styles.bestLabel}>{t('BEST CROSSING RIGHT NOW')}</Text>
+              <Text style={styles.bestLabel}>{bestCrossing._drive != null ? t('BEST CROSSING NEAR YOU') : t('BEST CROSSING RIGHT NOW')}</Text>
               <View style={styles.bestRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <Text style={{ fontSize: 22 }}>{bestCrossing.flag}</Text>
                   <Text style={styles.bestName}>{bestCrossing.name}</Text>
                 </View>
                 <View style={styles.bestPill}>
-                  <Text style={styles.bestPillText}>{t('{n} min', { n: bestCrossing.wait })}</Text>
+                  <Text style={styles.bestPillText}>{t('{n} min', { n: lw(bestCrossing) })}</Text>
                 </View>
               </View>
-              <Text style={styles.bestSub}>{bestCrossing.city} · {t('{n} min wait', { n: bestCrossing.wait })}</Text>
+              <Text style={styles.bestSub}>
+                {bestCrossing.city} · {bestCrossing._drive != null
+                  ? t('~{d} min drive + {n} min wait', { d: bestCrossing._drive, n: lw(bestCrossing) })
+                  : t('{n} min wait', { n: lw(bestCrossing) })}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
 
-        {uiPrefs.showHelpTips && (
-          <View style={[styles.helpTip, { backgroundColor: dark ? '#2C2C2E' : '#EAF4FF' }]}> 
-            <Text style={[styles.helpTipText, { color: dark ? '#D0E8FF' : '#0A5FBF' }]}>{t('Tip: Tap a crossing card to see route planning and detailed trends.')}</Text>
-          </View>
-        )}
-
         {/* Filter pills */}
-        {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
+        {showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
           {[
             { key: 'All', label: t('All') },
             { key: 'MX', label: t('🇲🇽 Mexico') },
@@ -205,8 +205,15 @@ export default function HomeScreen({ navigation }) {
           ))}
         </ScrollView>}
 
+        {/* Preferred lane */}
+        {showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4, gap: 8 }}>
+          {LANE_KEYS.map((k) => (
+            <PillBtn key={k} label={t(k === 'sentri' ? 'SENTRI / NEXUS' : laneLabel(k, 'MX'))} active={laneType === k} onPress={() => setLaneType(k)} dark={dark} />
+          ))}
+        </ScrollView>}
+
         {/* Sort + Open Now pills */}
-        {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 8 }}>
+        {showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 8 }}>
           <PillBtn
             label={t('🟢 Open Now')}
             active={openOnly}
@@ -235,7 +242,7 @@ export default function HomeScreen({ navigation }) {
               <>
                 <SectionHeader title={t('My Crossings')} dark={dark} />
                 {favCrossings.map((c) => (
-                  <CrossingCard key={c.id} crossing={c} isFav={true} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} />
+                  <CrossingCard key={c.id} crossing={c} isFav={true} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} driveMin={driveMinFor(c)} lane={laneType} measured={measuredFor(c)} />
                 ))}
               </>
             )}
@@ -262,7 +269,7 @@ export default function HomeScreen({ navigation }) {
               </View>
             )}
             {otherCrossings.map((c) => (
-              <CrossingCard key={c.id} crossing={c} isFav={false} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} distanceMi={nearMeDistances?.[c.id]} />
+              <CrossingCard key={c.id} crossing={c} isFav={false} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} distanceMi={nearMeDistances?.[c.id]} driveMin={driveMinFor(c)} lane={laneType} measured={measuredFor(c)} />
             ))}
 
             {/* Community feed preview */}
@@ -314,28 +321,15 @@ const styles = StyleSheet.create({
   bestPill: { backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 },
   bestPillText: { color: '#fff', fontWeight: '800', fontSize: 17 },
   bestSub: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 6 },
-  widgetSmall: { borderRadius: 16, padding: 16, width: 160, justifyContent: 'center' },
-  widgetName: { color: '#fff', fontSize: 13, fontWeight: '700', marginTop: 6 },
-  widgetWait: { color: '#fff', fontSize: 28, fontWeight: '800', marginTop: 6 },
-  widgetLevel: { color: 'rgba(255,255,255,0.85)', fontSize: 11 },
-  widgetMedium: { borderRadius: 16, padding: 16, width: 240, justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
-  widgetMediumRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  widgetMediumName: { flex: 1, fontSize: 13, fontWeight: '600' },
   miniReport: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginBottom: 10, padding: 14, borderRadius: 12, minHeight: 56, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
   miniAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   miniInitials: { color: '#fff', fontSize: 12, fontWeight: '700' },
   miniReportName: { fontSize: 15, fontWeight: '600' },
   miniReportTime: { fontSize: 13, color: '#8E8E93' },
-  helpTip: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  helpTipText: { fontSize: 14, fontWeight: '600' },
-  insightCard: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, padding: 14 },
-  insightTitle: { fontSize: 16, fontWeight: '800' },
-  insightBody: { marginTop: 4, fontSize: 14, color: '#8E8E93', lineHeight: 20 },
   snapshotCard: { marginHorizontal: 16, marginTop: 12, marginBottom: 8, borderRadius: 12, padding: 14 },
   snapshotTitle: { fontSize: 15, fontWeight: '800' },
   snapshotSub: { marginTop: 4, fontSize: 13, color: '#8E8E93' },
-  advancedToggle: { marginTop: 10, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  advancedToggleText: { fontSize: 14, fontWeight: '700' },
+  filterBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   emptyStateCard: { marginHorizontal: 16, marginVertical: 16, borderRadius: 12, padding: 16, alignItems: 'center' },
   emptyActionBtn: { marginTop: 12, minHeight: 44, paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center' },
   emptyActionText: { color: '#fff', fontSize: 14, fontWeight: '700' },

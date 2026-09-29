@@ -1,0 +1,12 @@
+{
+  "name": "crosseta-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CrossETA backend: CBP history, push alerts, community reports, measured waits",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  }
+}

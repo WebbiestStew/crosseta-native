@@ -4,11 +4,11 @@ import {
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useApp } from '../context/AppContext';
-import { BLUE, waitColor, colors, CROSSING_COORDS } from '../data';
+import { BLUE, waitColor, colors, CROSSING_COORDS, laneWait } from '../data';
 import { t } from '../i18n';
 
 export default function MapScreen({ navigation }) {
-  const { crossings, dark } = useApp();
+  const { crossings, dark, laneType } = useApp();
   const mapRef = useRef(null);
   const c = colors(dark);
   const [selected, setSelected] = useState(null);
@@ -35,7 +35,8 @@ export default function MapScreen({ navigation }) {
         {crossings.map((crossing) => {
           const coords = CROSSING_COORDS[crossing.id];
           if (!coords) return null;
-          const pinBg = waitColor(crossing.wait);
+          const w = laneWait(crossing, laneType).wait;
+          const pinBg = waitColor(w);
           return (
             <Marker
               key={crossing.id}
@@ -43,7 +44,7 @@ export default function MapScreen({ navigation }) {
               onPress={() => setSelected(crossing)}
             >
               <View style={[styles.pin, { backgroundColor: pinBg }]}>
-                <Text style={styles.pinText}>{crossing.wait != null ? `${crossing.wait}m` : '—'}</Text>
+                <Text style={styles.pinText}>{w != null ? `${w}m` : '—'}</Text>
               </View>
             </Marker>
           );
@@ -59,8 +60,8 @@ export default function MapScreen({ navigation }) {
             <Text style={{ fontSize: 12, color: c.subtext }}>{selected.city} · {selected.region}</Text>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
-            <Text style={[styles.calloutWait, { color: waitColor(selected.wait) }]}>
-              {selected.wait != null ? t('{n} min', { n: selected.wait }) : t('No live data')}
+            <Text style={[styles.calloutWait, { color: waitColor(laneWait(selected, laneType).wait) }]}>
+              {laneWait(selected, laneType).wait != null ? t('{n} min', { n: laneWait(selected, laneType).wait }) : t('No live data')}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Detail', { crossing: selected })}

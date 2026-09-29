@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, fmtMin, dataAgeMin } from '../data';
+import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, fmtMin, dataAgeMin, crossingTo } from '../data';
 import { t } from '../i18n';
 
 export default function ShareScreen({ route, navigation }) {
@@ -51,7 +51,7 @@ export default function ShareScreen({ route, navigation }) {
             <View style={styles.cardLeft}>
               <Text style={{ fontSize: 40 }}>{crossing.flag}</Text>
               <Text style={styles.cardName}>{crossing.name}</Text>
-              <Text style={styles.cardCity}>{crossing.city}, {crossing.country}</Text>
+              <Text style={styles.cardCity}>{crossing.city}, {crossingTo(crossing)}</Text>
             </View>
             <View style={styles.cardRight}>
               <Text style={[styles.cardWait, { color }]}>{crossing.wait ?? '—'}</Text>

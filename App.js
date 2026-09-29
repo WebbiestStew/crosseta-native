@@ -19,14 +19,17 @@ import ReportScreen from './screens/ReportScreen';
 import ShareScreen from './screens/ShareScreen';
 import InLineScreen from './screens/InLineScreen';
 import TripHistoryScreen from './screens/TripHistoryScreen';
-import CrossingComparisonScreen from './screens/CrossingComparisonScreen';
 import TripPlanningScreen from './screens/TripPlanningScreen';
-import ChecklistScreen from './screens/ChecklistScreen';
 import MapScreen from './screens/MapScreen';
 import { TrackingFAB } from './components/TrackingFAB';
 import { t } from './i18n';
+import { api } from './api';
 
 const Tab = createBottomTabNavigator();
+
+// Reports are only shared (and moderated) by the server, so the tab appears only when one is
+// configured (EXPO_PUBLIC_API_URL / expo.extra.apiUrl). Without a server there is nothing to share.
+const SHOW_COMMUNITY = api.available;
 const HomeStack = createNativeStackNavigator();
 const TripsStack = createNativeStackNavigator();
 const RootStack = createNativeStackNavigator();
@@ -85,11 +88,13 @@ function HomeTabs({ navigation }) {
             tabBarBadgeStyle: { backgroundColor: '#FF453A', color: '#fff', fontSize: 10, fontWeight: '700' },
           }}
         />
-        <Tab.Screen
-          name="CommunityTab"
-          component={CommunityScreen}
-          options={{ title: t('Community'), tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
-        />
+        {SHOW_COMMUNITY && (
+          <Tab.Screen
+            name="CommunityTab"
+            component={CommunityScreen}
+            options={{ title: t('Community'), tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
+          />
+        )}
         <Tab.Screen
           name="TripsTab"
           options={{ title: t('My Trips'), tabBarIcon: ({ focused }) => <TabIcon emoji="🚗" focused={focused} dark={dark} /> }}
@@ -113,7 +118,6 @@ function HomeStackNavigator() {
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="Home" component={HomeScreen} />
       <HomeStack.Screen name="Detail" component={DetailScreen} />
-      <HomeStack.Screen name="Compare" component={CrossingComparisonScreen} />
       <HomeStack.Screen name="Map" component={MapScreen} />
     </HomeStack.Navigator>
   );
@@ -163,7 +167,7 @@ function NotificationBanner({ message, onHide }) {
 }
 
 function AppNavigator() {
-  const { onboarded, dark, completeOnboarding, lastFetchTime, crossings, lang } = useApp();
+  const { onboarded, dark, completeOnboarding, lastFetchTime, crossings, lang, hydrated } = useApp();
   const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
@@ -186,6 +190,10 @@ function AppNavigator() {
     });
     return () => sub.remove();
   }, [crossings]);
+
+  // Until saved state has loaded, `onboarded` is its default (false) and a returning user
+  // would see onboarding flash and then animate away. Hold a blank frame instead.
+  if (!hydrated) return <View style={{ flex: 1, backgroundColor: '#F2F2F7' }} />;
 
   return (
     <React.Fragment key={lang}>
@@ -218,11 +226,6 @@ function AppNavigator() {
               <RootStack.Screen
                 name="TripPlan"
                 component={TripPlanningScreen}
-                options={{ presentation: 'modal' }}
-              />
-              <RootStack.Screen
-                name="Checklist"
-                component={ChecklistScreen}
                 options={{ presentation: 'modal' }}
               />
             </>

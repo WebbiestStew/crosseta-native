@@ -33,13 +33,17 @@ export default function ReportScreen({ route, navigation }) {
   const mxList = crossings.filter((c) => c.border === 'MX');
   const caList = crossings.filter((c) => c.border === 'CA');
 
-  const handleSubmit = () => {
-    if (!selectedCrossing) return;
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!selectedCrossing || submitting) return;
     if (atCrossingNow === null || exactWait === null) {
       setSubmitError(t('Please answer the two quick quality questions first.'));
       return;
     }
-    const result = addReport({
+    setSubmitting(true);
+    // addReport is synchronous on-device and returns a promise when a server is configured.
+    const result = await addReport({
       crossingId: selectedCrossing.id,
       crossingName: selectedCrossing.name,
       border: selectedCrossing.border,
@@ -52,6 +56,7 @@ export default function ReportScreen({ route, navigation }) {
         exactWait,
       },
     });
+    setSubmitting(false);
     if (!result?.ok) {
       setSubmitError(result?.error || t('Unable to submit report right now.'));
       trackEvent?.('submit_report_failed', { crossingId: selectedCrossing.id, reason: result?.error || 'unknown' });

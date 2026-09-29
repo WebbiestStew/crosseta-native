@@ -10,8 +10,8 @@ import {
   Animated,
   Platform,
   KeyboardAvoidingView,
-  SafeAreaView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -45,6 +45,7 @@ const LANE_OPTIONS = [
 export function TrackingFAB({ navigation, dark }) {
   const { crossings, favorites, activeCrossing, startTracking } = useApp();
   const c = colors(dark);
+  const insets = useSafeAreaInsets();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [search,    setSearch]    = useState('');
@@ -174,7 +175,7 @@ export function TrackingFAB({ navigation, dark }) {
           </Animated.View>
 
           {/* Sheet */}
-          <SafeAreaView style={[styles.sheet, { backgroundColor: c.card }]}>
+          <View style={[styles.sheet, { backgroundColor: c.card, paddingBottom: Math.max(insets.bottom, 12) }]}>
             <DragHandle dark={dark} />
 
             <Text style={[styles.sheetTitle, { color: c.text }]}>{t('Start Tracking')}</Text>
@@ -270,7 +271,7 @@ export function TrackingFAB({ navigation, dark }) {
                 {selected ? t('Track {flag} {name}', { flag: selected.flag, name: selected.name }) : t('Select a crossing above')}
               </Text>
             </TouchableOpacity>
-          </SafeAreaView>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
     </>
@@ -370,7 +371,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 16,
-    paddingBottom: 12,
     maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, SafeAreaView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
-import { Svg, Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, waitLevel, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
-import { WaitPill, SectionHeader, BigSparkline, Card } from '../components/UI';
+import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, waitLevel, getTimeUntilClose, fmtMin, dataAgeMin, crossingTo, isStale, timeAgo } from '../data';
+import { WaitPill, SectionHeader, Card } from '../components/UI';
+import { dayProfile, historyDays, waitAdvice, clockFor, MIN_DAYS } from '../history';
 import ReportCard from '../components/ReportCard';
 import { t } from '../i18n';
 
@@ -16,15 +16,16 @@ const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINS = ['00', '15', '30', '45'];
 
 export default function DetailScreen({ route, navigation }) {
-  const { crossing } = route.params;
-  const { favorites, toggleStar, reports, votes, feedbackDone, vote, setFeedback, flagReport, dark, completedTrips } = useApp();
+  const { crossings, favorites, toggleStar, reports, votes, feedbackDone, vote, setFeedback, flagReport, dark, driveMinFor, locate, userPos, getHistory, communityWaits, loadServerHistory } = useApp();
+  // Route params are a snapshot; read the live record so the 5-minute refresh shows up here.
+  const crossing = crossings.find((x) => x.id === route.params.crossing.id) ?? route.params.crossing;
+  // Pull the server's recorded history for this crossing (no-op without a server; cached for 6h).
+  useEffect(() => { loadServerHistory?.([crossing.id]); }, [crossing.id]);   // eslint-disable-line react-hooks/exhaustive-deps
   const isFav = favorites.includes(crossing.id);
   const [arrHour, setArrHour] = useState('9');
   const [arrMin, setArrMin] = useState('00');
   const [arrAmPm, setArrAmPm] = useState('AM');
   const [notifScheduled, setNotifScheduled] = useState(false);
-  const currentHour = new Date().getHours();
-  const today = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date().getDay()];
 
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
   const card = dark ? '#2C2C2E' : '#fff';
@@ -35,30 +36,40 @@ export default function DetailScreen({ route, navigation }) {
   // Leave-by calc
   const arrH = (parseInt(arrHour) % 12) + (arrAmPm === 'PM' ? 12 : 0);
   const arrTotalMin = arrH * 60 + parseInt(arrMin);
-  const totalTrip = (crossing.driveMin || 0) + (crossing.wait ?? 0);
+  const driveMin = driveMinFor(crossing);
+  const totalTrip = (driveMin ?? 0) + (crossing.wait ?? 0);
   const leaveByMin = arrTotalMin - totalTrip;
   const lbH = Math.floor(((leaveByMin % 1440) + 1440) % 1440 / 60);
   const lbM = ((leaveByMin % 60) + 60) % 60;
   const leaveByStr = `${lbH % 12 || 12}:${String(lbM).padStart(2, '0')} ${lbH >= 12 ? 'PM' : 'AM'}`;
 
-  const heatColor = (wait) => {
-    if (wait <= 15) return { bg: '#1C4A2B', txt: GREEN };
-    if (wait <= 35) return { bg: '#4A3A0A', txt: ORANGE };
-    return { bg: '#4A1A1A', txt: RED };
-  };
-
   const crossingReports = reports.filter((r) => r.crossingId === crossing.id && !r.hidden);
 
-  // Historical accuracy chart data — up to 10 most recent tracked trips for this crossing
-  const myTrips = completedTrips
-    .filter((t) => t.crossingId === crossing.id)
-    .slice(0, 10)
-    .reverse(); // oldest first so x-axis reads left→right
-  const chartData = myTrips.map((t) => {
-    const hour = new Date(t.startTime).getHours();
-    const predicted = crossing.wait;
-    return { predicted, actual: t.actualWait, date: new Date(t.startTime) };
+  // Typical wait by hour for today's weekday, from this device's recorded history
+  const history = getHistory();
+  const nowDate = new Date();
+  const portNow = clockFor(history, crossing.id, nowDate);   // the port's wall clock, not the phone's
+  const profile = dayProfile(history, crossing.id, portNow.getDay());
+  const usable = profile.map((p) => (p && p.days >= MIN_DAYS ? Math.round(p.mean) : null));
+  const hasHistory = usable.some((v) => v != null);
+  const chartMax = Math.max(15, ...usable.filter((v) => v != null));
+  const bestHour = usable.reduce((best, v, h) => (v != null && (best == null || v < usable[best]) ? h : best), null);
+  const hourLabel = (h) => `${h % 12 || 12}${h >= 12 ? 'PM' : 'AM'}`;
+  const advice = waitAdvice(history, crossing.id, crossing.wait, nowDate);
+  const stale = isStale(crossing);
+  const measured = ['standard', 'sentri', 'ready'].flatMap((lane) => {
+    const m = communityWaits?.[crossing.id]?.[lane];
+    if (!m) return [];
+    const posted = lane === 'sentri' ? crossing.sentriWait : lane === 'ready' ? crossing.readyWait : crossing.wait;
+    return [{ lane, label: lane === 'sentri' ? (crossing.border === 'MX' ? 'SENTRI' : 'NEXUS') : lane === 'ready' ? 'Ready Lane' : 'Standard', minutes: m.minutes, n: m.n, posted }];
   });
+  const ADVICE = {
+    good:    { color: GREEN,     text: (a) => t('Lower than usual for this hour (~{n} min). Good time to go.', { n: a.usual }) },
+    wait:    { color: ORANGE,    text: (a) => t('{d} min above usual. It usually drops to ~{n} min around {time}.', { d: a.diff, n: a.best.wait, time: hourLabel(clockFor(history, crossing.id, a.best.at).getHours()) }) },
+    high:    { color: RED,       text: (a) => t('{d} min above usual for this hour (~{n} min), with no relief expected soon.', { d: a.diff, n: a.usual }) },
+    later:   { color: BLUE,      text: (a) => t('Usually lower around {time} (~{n} min).', { time: hourLabel(clockFor(history, crossing.id, a.best.at).getHours()), n: a.best.wait }) },
+    typical: { color: '#8E8E93', text: (a) => t('About typical for this hour (~{n} min).', { n: a.usual }) },
+  };
 
   // Hours countdown for the hero
   const minsUntilClose = getTimeUntilClose(crossing);
@@ -83,7 +94,7 @@ export default function DetailScreen({ route, navigation }) {
           body: `${crossing.wait != null ? t('Wait was {n} min when you set this.', { n: crossing.wait }) + ' ' : ''}${t('Leave now to arrive by {time}.', { time: `${arrHour}:${arrMin} ${arrAmPm}` })}`,
           data: { crossingId: crossing.id },
         },
-        trigger: { seconds },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds },
       });
       setNotifScheduled(true);
     } catch (_) {}
@@ -111,15 +122,19 @@ export default function DetailScreen({ route, navigation }) {
         <LinearGradient colors={['#007AFF', '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <Text style={{ fontSize: 52 }}>{crossing.flag}</Text>
           <Text style={styles.heroName}>{crossing.name}</Text>
-          <Text style={styles.heroSub}>{crossing.city} · {crossing.country}</Text>
+          <Text style={styles.heroSub}>{crossing.city} · {crossingTo(crossing)}</Text>
           <View style={styles.heroBadges}>
             <View style={styles.heroBadge}>
               <Text style={styles.heroBadgeText}>{crossing.is24h ? t('Open 24/7') : `${t('Limited')} · ${crossing.hours}`}</Text>
             </View>
-            {crossing.driveMin > 0 && (
+            {driveMin != null ? (
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>🚗 {t('{n} min drive', { n: crossing.driveMin })}</Text>
+                <Text style={styles.heroBadgeText}>🚗 {t('~{n} min drive', { n: driveMin })}</Text>
               </View>
+            ) : !userPos && (
+              <TouchableOpacity style={styles.heroBadge} onPress={() => locate({ prompt: true })}>
+                <Text style={styles.heroBadgeText}>📍 {t('Enable location for drive time')}</Text>
+              </TouchableOpacity>
             )}
             {closingSoon && (
               <View style={[styles.heroBadge, { backgroundColor: 'rgba(255,159,10,0.35)' }]}>
@@ -139,19 +154,47 @@ export default function DetailScreen({ route, navigation }) {
                   {crossing.wait ?? '—'}<Text style={styles.bigWaitUnit}> {t('min')}</Text>
                 </Text>
                 <Text style={{ fontSize: 14, color: waitColor(crossing.wait), fontWeight: '700', marginTop: 2 }}>
-                  {waitLevel(crossing.wait) ? t('{level} Traffic', { level: t(`${waitLevel(crossing.wait)} Traffic`) }) : t('No data')}
+                  {waitLevel(crossing.wait) ? t(`${waitLevel(crossing.wait)} Traffic`) : t('No data')}
                 </Text>
+                {crossing.via ? (
+                  <Text style={{ fontSize: 12, color: '#8E8E93', marginTop: 4 }}>{t('Shortest line: {bridge}', { bridge: crossing.via })}</Text>
+                ) : null}
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ fontSize: 12, color: '#8E8E93' }}>{t('Source')}</Text>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: crossing.live ? GREEN : ORANGE }}>{crossing.live ? t('CBP live') : t('No live data')}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: crossing.live ? GREEN : ORANGE }}>{crossing.live ? t('CBP live') : /pending/i.test(crossing.feedNote ?? '') ? t('CBP: update pending') : t('No live data')}</Text>
                 <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 4 }}>
-                  {dataAgeMin(crossing) != null ? t('Updated {n}m ago', { n: dataAgeMin(crossing) }) : t('Not yet updated')}
+                  {dataAgeMin(crossing) != null ? t('Updated {when}', { when: timeAgo(dataAgeMin(crossing)) }) : t('Not yet updated')}
                 </Text>
               </View>
             </View>
           </View>
         </Card>
+
+        {stale && (
+          <View style={[styles.noticeBox, { backgroundColor: 'rgba(255,159,10,0.15)' }]}>
+            <Text style={{ color: ORANGE, fontSize: 13, fontWeight: '700' }}>
+              ⚠️ {t("CBP last updated this reading {when}. It may be out of date.", { when: timeAgo(dataAgeMin(crossing)) })}
+            </Text>
+          </View>
+        )}
+        {advice && (
+          <View style={[styles.noticeBox, { backgroundColor: card, borderLeftWidth: 4, borderLeftColor: ADVICE[advice.kind].color }]}>
+            <Text style={{ color: text, fontSize: 14, fontWeight: '600', lineHeight: 20 }}>{ADVICE[advice.kind].text(advice)}</Text>
+          </View>
+        )}
+
+        {measured.length > 0 && (
+          <View style={[styles.noticeBox, { backgroundColor: card, borderLeftWidth: 4, borderLeftColor: BLUE }]}>
+            <Text style={{ color: '#8E8E93', fontSize: 12, fontWeight: '700', marginBottom: 4 }}>👥 {t('MEASURED BY DRIVERS · LAST HOUR')}</Text>
+            {measured.map((m) => (
+              <Text key={m.lane} style={{ color: text, fontSize: 14, fontWeight: '600', lineHeight: 20 }}>
+                {t(m.label)}: {t('{n} min', { n: m.minutes })} · {t('{n} drivers', { n: m.n })}
+                {m.posted != null ? `  (${t('CBP posts')} ${m.posted})` : ''}
+              </Text>
+            ))}
+          </View>
+        )}
 
         {/* Lane breakdown */}
         <SectionHeader title={t('Lane Breakdown')} dark={dark} />
@@ -162,7 +205,7 @@ export default function DetailScreen({ route, navigation }) {
             { label: 'Ready Lane', now: crossing.readyWait, p1: crossing.readyPredict1h, p3: crossing.readyPredict3h },
           ].map((lane) => (
             <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
-              <Text style={styles.laneLabel}>{t(lane.label)}</Text>
+              <Text style={styles.laneLabel} numberOfLines={1} adjustsFontSizeToFit>{t(lane.label)}</Text>
               <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
               <Text style={styles.laneUnit}>{t('min')}</Text>
               <Text style={[styles.lanePredict, { color: waitColor(lane.p1) }]}>{t('Est. +1h')} {fmtMin(lane.p1)}</Text>
@@ -171,8 +214,40 @@ export default function DetailScreen({ route, navigation }) {
           ))}
         </View>
 
+        {/* One row per bridge for multi-bridge ports */}
+        {crossing.bridges?.length > 1 && (
+          <>
+            <SectionHeader title={t('Bridges')} dark={dark} />
+            <Card dark={dark}>
+              {crossing.bridges.map((b, i) => {
+                const best = i === 0 && b.std != null;
+                return (
+                  <View key={b.id || i} style={[styles.bridgeRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: text, fontSize: 15, fontWeight: '700' }}>
+                        {b.name || t('Main crossing')}{best ? `  ✓ ${t('Shortest')}` : ''}
+                      </Text>
+                      <Text style={{ color: '#8E8E93', fontSize: 12, marginTop: 2 }}>
+                        {[
+                          b.sentri != null ? `${crossing.border === 'MX' ? 'SENTRI' : 'NEXUS'} ${b.sentri}m` : null,
+                          b.ready != null ? `${t('Ready')} ${b.ready}m` : null,
+                          b.ped != null ? `${t('Ped.')} ${b.ped}m` : null,
+                          b.hours ? b.hours : null,
+                        ].filter(Boolean).join(' · ')}
+                      </Text>
+                    </View>
+                    {b.std != null
+                      ? <WaitPill wait={b.std} small />
+                      : <Text style={{ color: ORANGE, fontSize: 12, fontWeight: '700' }}>{b.stdClosed ? t('Lanes Closed') : b.note ? t(b.note) : t('No data')}</Text>}
+                  </View>
+                );
+              })}
+            </Card>
+          </>
+        )}
+
         {/* Other lanes + port status (CBP) */}
-        {crossing.live && (
+        {[crossing.pedWait, crossing.pedReadyWait, crossing.comWait, crossing.comFastWait].some((v) => v != null) && (
           <>
             <SectionHeader title={t('Pedestrian & Commercial')} dark={dark} />
             <View style={styles.laneGrid}>
@@ -183,7 +258,7 @@ export default function DetailScreen({ route, navigation }) {
                 { label: 'FAST', now: crossing.comFastWait },
               ].map((lane) => (
                 <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
-                  <Text style={styles.laneLabel}>{t(lane.label)}</Text>
+                  <Text style={styles.laneLabel} numberOfLines={1} adjustsFontSizeToFit>{t(lane.label)}</Text>
                   <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
                   <Text style={styles.laneUnit}>{t('min')}</Text>
                 </View>
@@ -211,13 +286,6 @@ export default function DetailScreen({ route, navigation }) {
                 { items: ['AM', 'PM'], value: arrAmPm, set: setArrAmPm },
               ].map((p, i) => (
                 <View key={i} style={[styles.pickerWrap, { backgroundColor: inputBg, borderColor }]}>
-                  <ScrollView style={{ maxHeight: 40, overflow: 'hidden' }}>
-                    {p.items.map((item) => (
-                      <TouchableOpacity key={item} onPress={() => { p.set(item); setNotifScheduled(false); }} style={[styles.pickerItem, p.value === item && styles.pickerItemActive]}>
-                        <Text style={[styles.pickerItemText, { color: text }, p.value === item && { color: BLUE }]}>{item}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
                   <TouchableOpacity
                     onPress={() => {
                       const idx = p.items.indexOf(p.value);
@@ -235,7 +303,7 @@ export default function DetailScreen({ route, navigation }) {
             <View style={[styles.calcResult, { backgroundColor: inputBg }]}>
               <View style={styles.calcRow}>
                 {[
-                  { l: t('Drive Time'), v: t('{n} min', { n: crossing.driveMin || 0 }), c: text },
+                  { l: t('Drive Time'), v: driveMin != null ? t('~{n} min', { n: driveMin }) : '—', c: text },
                   { l: t('Border Wait'), v: fmtMin(crossing.wait, ` ${t('min')}`), c: waitColor(crossing.wait) },
                   { l: t('Total Trip'), v: t('{n} min', { n: totalTrip }), c: text },
                   { l: t('Leave By'), v: leaveByStr, c: BLUE },
@@ -263,24 +331,8 @@ export default function DetailScreen({ route, navigation }) {
           </View>
         </Card>
 
-        {/* Quick actions: Compare + Checklist */}
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Compare', { crossingId: crossing.id })}
-            style={[styles.quickActionBtn, { backgroundColor: card }]}
-          >
-            <Text style={[styles.quickActionText, { color: text }]}>📊 {t('Compare Region')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Checklist', { crossingId: crossing.id })}
-            style={[styles.quickActionBtn, { backgroundColor: card }]}
-          >
-            <Text style={[styles.quickActionText, { color: text }]}>📋 {t('Packing List')}</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Predictions row */}
-        <SectionHeader title={t('Estimates (rough, from a generic daily pattern)')} dark={dark} />
+        <SectionHeader title={crossing.predBasis === 'history' ? t('Estimates (from your recorded history)') : t('Estimates (rough, from a generic daily pattern)')} dark={dark} />
         <View style={styles.predictRow}>
           {[{ label: t('Now'), wait: crossing.wait }, { label: t('Est. +1 hour'), wait: crossing.predict1h }, { label: t('Est. +3 hours'), wait: crossing.predict3h }].map((p) => (
             <View key={p.label} style={[styles.predictCard, { backgroundColor: card }]}>
@@ -289,6 +341,47 @@ export default function DetailScreen({ route, navigation }) {
             </View>
           ))}
         </View>
+
+        {/* Typical wait by hour — built from waits this device has recorded */}
+        <SectionHeader title={t('Typical wait today')} dark={dark} />
+        <Card dark={dark}>
+          <View style={{ padding: 16 }}>
+            {hasHistory ? (
+              <>
+                <View style={styles.histBars}>
+                  {usable.map((v, h) => (
+                    <View key={h} style={styles.histCol}>
+                      <View style={[styles.histBar, {
+                        height: v == null ? 3 : Math.max(4, (v / chartMax) * 70),
+                        backgroundColor: v == null ? (dark ? '#48484A' : '#E5E5EA') : waitColor(v),
+                        opacity: h === portNow.getHours() ? 1 : 0.7,
+                        borderWidth: h === portNow.getHours() ? 1.5 : 0,
+                        borderColor: text,
+                      }]} />
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.histAxis}>
+                  {[0, 6, 12, 18].map((h) => <Text key={h} style={styles.histAxisText}>{hourLabel(h)}</Text>)}
+                </View>
+                {bestHour != null && (
+                  <Text style={{ color: text, fontSize: 14, fontWeight: '600', marginTop: 10 }}>
+                    {t('Usually quickest around {time} (~{n} min)', { time: hourLabel(bestHour), n: usable[bestHour] })}
+                  </Text>
+                )}
+              </>
+            ) : (
+              <Text style={{ color: '#8E8E93', fontSize: 14, lineHeight: 20 }}>
+                {t('Building history. The app records waits each time it refreshes, and typical patterns appear once an hour has been seen on {n} different days.', { n: MIN_DAYS })}
+              </Text>
+            )}
+            <Text style={{ color: '#8E8E93', fontSize: 11, marginTop: 8 }}>
+              {historyDays(history, crossing.id) === 1
+                ? t('Based on 1 day recorded on this device')
+                : t('Based on {n} days recorded on this device', { n: historyDays(history, crossing.id) })}
+            </Text>
+          </View>
+        </Card>
 
         {/* Community reports for this crossing */}
         {crossingReports.length > 0 && (
@@ -326,7 +419,6 @@ const styles = StyleSheet.create({
   heroBadgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   bigWait: { fontSize: 48, fontWeight: '800', lineHeight: 52 },
   bigWaitUnit: { fontSize: 20, fontWeight: '400' },
-  confidence: { fontSize: 26, fontWeight: '700' },
   laneGrid: { flexDirection: 'row', gap: 8, marginHorizontal: 16 },
   laneCard: { flex: 1, borderRadius: 14, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   laneLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', marginBottom: 6, textAlign: 'center' },
@@ -336,9 +428,6 @@ const styles = StyleSheet.create({
   calcPickers: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   pickerWrap: { flex: 1, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   pickerDisplay: { padding: 10, alignItems: 'center', justifyContent: 'center', minHeight: 56 },
-  pickerItem: { padding: 8, alignItems: 'center' },
-  pickerItemActive: { backgroundColor: 'rgba(0,122,255,0.1)' },
-  pickerItemText: { fontSize: 16, fontWeight: '600' },
   calcResult: { borderRadius: 12, padding: 14 },
   calcRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   calcCell: { width: '45%' },
@@ -347,27 +436,17 @@ const styles = StyleSheet.create({
   predictRow: { flexDirection: 'row', gap: 8, marginHorizontal: 16 },
   predictCard: { flex: 1, borderRadius: 14, padding: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   predictLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', marginBottom: 8 },
-  heatHeader: { width: 38, textAlign: 'center', fontSize: 9 },
-  heatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  heatDay: { width: 34, fontSize: 11 },
-  heatCell: { width: 36, height: 28, borderRadius: 6, marginRight: 2, alignItems: 'center', justifyContent: 'center' },
-  heatCellText: { fontSize: 10, fontWeight: '600' },
-  statsRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 12 },
-  statCard: { flex: 1, borderRadius: 14, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  statLabel: { fontSize: 11, color: '#8E8E93', fontWeight: '600', marginBottom: 6 },
-  statValue: { fontWeight: '800' },
   reportBtn: { padding: 16, alignItems: 'center', borderRadius: 14 },
   reportBtnText: { color: '#fff', fontSize: 17, fontWeight: '700' },
   leaveNotifBtn: {
     marginTop: 12, borderRadius: 10, padding: 12, alignItems: 'center',
   },
   leaveNotifText: { fontSize: 14, fontWeight: '700' },
-  quickActionsRow: {
-    flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 4,
-  },
-  quickActionBtn: {
-    flex: 1, borderRadius: 12, padding: 14, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  quickActionText: { fontSize: 14, fontWeight: '700' },
+  noticeBox: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, padding: 12 },
+  bridgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  histBars: { flexDirection: 'row', alignItems: 'flex-end', height: 74, gap: 2 },
+  histCol: { flex: 1, justifyContent: 'flex-end' },
+  histBar: { borderRadius: 2 },
+  histAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  histAxisText: { fontSize: 10, color: '#8E8E93' },
 });
