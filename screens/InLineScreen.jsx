@@ -13,8 +13,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { useLineTracker } from '../hooks/useLineTracker';
-import { colors, BLUE, GREEN, ORANGE, RED } from '../data';
+import { colors, BLUE, GREEN, ORANGE, RED, fmtMin } from '../data';
 import { Card, BigSparkline, GlassSurface } from '../components/UI';
+import { t } from '../i18n';
 
 /** Format seconds as MM:SS */
 function formatTime(totalSecs) {
@@ -77,12 +78,12 @@ export default function InLineScreen({ navigation }) {
 
   const handleCancel = () => {
     Alert.alert(
-      'Cancel Tracking',
-      'Stop tracking? This session won\'t be saved.',
+      t('Cancel Tracking'),
+      t("Stop tracking? This session won't be saved."),
       [
-        { text: 'Keep Tracking', style: 'cancel' },
+        { text: t('Keep Tracking'), style: 'cancel' },
         {
-          text: 'Cancel Session',
+          text: t('Cancel Session'),
           style: 'destructive',
           onPress: () => {
             stopTracking(true);
@@ -98,9 +99,9 @@ export default function InLineScreen({ navigation }) {
     return (
       <SafeAreaView style={[styles.root, { backgroundColor: c.bg }]}>
         <View style={styles.centred}>
-          <Text style={[styles.emptyText, { color: c.text }]}>No active session.</Text>
+          <Text style={[styles.emptyText, { color: c.text }]}>{t('No active session.')}</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>Go Back</Text>
+            <Text style={styles.backBtnText}>{t('Go Back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -114,9 +115,9 @@ export default function InLineScreen({ navigation }) {
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleCancel} hitSlop={12} style={styles.cancelBtn}>
-          <Text style={[styles.cancelText, { color: RED }]}>Cancel</Text>
+          <Text style={[styles.cancelText, { color: RED }]}>{t('Cancel')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: c.text }]}>I'm In Line</Text>
+        <Text style={[styles.headerTitle, { color: c.text }]}>{t("I'm In Line")}</Text>
         <View style={styles.cancelBtn} />
       </View>
 
@@ -142,16 +143,16 @@ export default function InLineScreen({ navigation }) {
               </Text>
             </View>
             <View style={[styles.laneBadge, { backgroundColor: LANE_COLORS[laneType] }]}>
-              <Text style={styles.laneText}>{LANE_LABELS[laneType]}</Text>
+              <Text style={styles.laneText}>{t(LANE_LABELS[laneType])}</Text>
             </View>
           </View>
 
           {/* Elapsed timer — the centrepiece */}
           <Animated.View style={[styles.timerContainer, { opacity: timerOpacity }]}>
-            <Text style={[styles.timerLabel, { color: c.subtext }]}>TIME IN LINE</Text>
+            <Text style={[styles.timerLabel, { color: c.subtext }]}>{t('TIME IN LINE')}</Text>
             <Text style={[styles.timer, { color: c.text }]}>{formatTime(currentWait)}</Text>
             <Text style={[styles.timerSub, { color: c.subtext }]}>
-              {Math.floor(currentWait / 60)} min {currentWait % 60} sec
+              {t('{m} min {s} sec', { m: Math.floor(currentWait / 60), s: currentWait % 60 })}
             </Text>
           </Animated.View>
 
@@ -167,47 +168,26 @@ export default function InLineScreen({ navigation }) {
               <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
             </View>
             <Text style={[styles.statusLabel, { color: meta.color }]}>
-              {meta.emoji}  {meta.label}
+              {meta.emoji}  {t(meta.label)}
             </Text>
           </View>
 
           {distanceMoved > 0 && (
             <Text style={[styles.distanceNote, { color: c.subtext }]}>
-              {Math.round(distanceMoved)}m from entry point
+              {t('{n}m from entry point', { n: Math.round(distanceMoved) })}
             </Text>
           )}
         </LinearGradient>
 
-        {/* ── Today's pattern sparkline ── */}
-        <Card dark={dark} style={styles.sparkCard}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Today's Pattern</Text>
-          <Text style={[styles.cardSub, { color: c.subtext }]}>
-            Historical wait times · circle marks now
-          </Text>
-          <View style={styles.sparklineWrapper}>
-            <BigSparkline
-              data={crossing.hourlyPattern}
-              currentHour={currentHour}
-              width={width - 64}
-            />
-          </View>
-          <View style={styles.sparkAxis}>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>12am</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>6am</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>12pm</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>6pm</Text>
-            <Text style={[styles.axisLabel, { color: c.subtext }]}>11pm</Text>
-          </View>
-        </Card>
 
         {/* ── Predictions snapshot ── */}
         <Card dark={dark} style={styles.predictCard}>
-          <Text style={[styles.cardTitle, { color: c.text }]}>Current Lane Estimates</Text>
+          <Text style={[styles.cardTitle, { color: c.text }]}>{t('Current Lane Estimates')}</Text>
           <View style={styles.predictRow}>
             {[
-              { label: 'Standard now', value: `${crossing.wait} min` },
-              { label: 'SENTRI now',   value: `${crossing.sentriWait} min` },
-              { label: '+1h standard', value: `${crossing.predict1h} min` },
+              { label: t('Standard now'), value: fmtMin(crossing.wait, ' min') },
+              { label: t('SENTRI now'), value: fmtMin(crossing.sentriWait, ' min') },
+              { label: t('Est. +1h standard'), value: fmtMin(crossing.predict1h, ' min') },
             ].map(({ label, value }) => (
               <View key={label} style={styles.predictCell}>
                 <Text style={[styles.predictValue, { color: c.text }]}>{value}</Text>
@@ -220,20 +200,19 @@ export default function InLineScreen({ navigation }) {
         {/* ── Privacy note ── */}
         <GlassSurface dark={dark} borderRadius={14} style={styles.privacyNote}>
           <Text style={[styles.privacyText, { color: c.subtext }]}>
-            🔒  GPS is active only while this screen is open. Your data helps improve
-            predictions for everyone — anonymously.
+            {t('🔒  GPS is active only while this screen is open. Your location stays on this device.')}
           </Text>
         </GlassSurface>
 
         {/* ── CTA buttons ── */}
         <TouchableOpacity onPress={handleCleared} activeOpacity={0.85} style={styles.clearedBtn}>
           <LinearGradient colors={['#34C759', '#30D158']} style={styles.clearedGradient}>
-            <Text style={styles.clearedBtnText}>✅  I Cleared!</Text>
+            <Text style={styles.clearedBtnText}>{t('✅  I Cleared!')}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleCancel} activeOpacity={0.8} style={styles.cancelFooterBtn}>
-          <Text style={[styles.cancelFooterText, { color: c.subtext }]}>Cancel Session</Text>
+          <Text style={[styles.cancelFooterText, { color: c.subtext }]}>{t('Cancel Session')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

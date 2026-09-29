@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { BLUE, GREEN, waitColor, colors } from '../data';
 import { SectionHeader, Card } from '../components/UI';
+import { t } from '../i18n';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINS = ['00', '15', '30', '45'];
@@ -26,7 +27,7 @@ export default function TripPlanningScreen({ navigation }) {
 
   const arrH = (parseInt(arrHour) % 12) + (arrAmPm === 'PM' ? 12 : 0);
   const arrTotalMin = arrH * 60 + parseInt(arrMin);
-  const totalTrip = crossing ? (crossing.driveMin || 0) + crossing.wait : 0;
+  const totalTrip = crossing ? (crossing.driveMin || 0) + (crossing.wait ?? 0) : 0;
   const leaveByMin = arrTotalMin - totalTrip;
   const lbH = Math.floor(((leaveByMin % 1440) + 1440) % 1440 / 60);
   const lbM = ((leaveByMin % 60) + 60) % 60;
@@ -43,8 +44,8 @@ export default function TripPlanningScreen({ navigation }) {
       if (seconds < 5) return;
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `🚗 Time to leave for ${crossing.name}!`,
-          body: `Current wait: ${crossing.wait} min. Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
+          title: t('🚗 Time to leave for {name}!', { name: crossing.name }),
+          body: `${crossing.wait != null ? t('Wait when set: {n} min.', { n: crossing.wait }) + ' ' : ''}${t('Leave now to arrive by {time}.', { time: `${arrHour}:${arrMin} ${arrAmPm}` })}`,
           data: { crossingId: crossing.id },
         },
         trigger: { seconds },
@@ -63,7 +64,7 @@ export default function TripPlanningScreen({ navigation }) {
 
   function laneFromCrossing(selCrossing) {
     if (!selCrossing) return 'standard';
-    if ((selCrossing.sentriWait ?? 999) < selCrossing.wait) return 'sentri';
+    if (selCrossing.wait != null && (selCrossing.sentriWait ?? 999) < selCrossing.wait) return 'sentri';
     return 'standard';
   }
 
@@ -84,9 +85,9 @@ export default function TripPlanningScreen({ navigation }) {
         borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={{ color: BLUE, fontSize: 17 }}>‹ Back</Text>
+          <Text style={{ color: BLUE, fontSize: 17 }}>‹ {t('Back')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: c.text }]}>Trip Planner</Text>
+        <Text style={[styles.navTitle, { color: c.text }]}>{t('Trip Planner')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -94,14 +95,14 @@ export default function TripPlanningScreen({ navigation }) {
         {/* Crossing picker */}
         {savedTripTemplates.length > 0 && (
           <>
-            <SectionHeader title="Saved Trips" dark={dark} />
+            <SectionHeader title={t('Saved Trips')} dark={dark} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
               {savedTripTemplates.map((tpl) => (
                 <TouchableOpacity key={tpl.id} onPress={() => loadTemplate(tpl)} style={[styles.crossingChip, { backgroundColor: c.card, borderWidth: 1, borderColor: c.divider, minWidth: 160 }]}> 
                   <Text style={[styles.chipText, { color: c.text }]} numberOfLines={1}>{tpl.name}</Text>
                   <Text style={{ fontSize: 11, color: c.subtext, marginTop: 2 }}>{tpl.arrival}</Text>
                   <TouchableOpacity onPress={() => deleteTripTemplate(tpl.id)} style={{ marginTop: 6 }}>
-                    <Text style={{ color: '#FF453A', fontSize: 11, fontWeight: '700' }}>Delete</Text>
+                    <Text style={{ color: '#FF453A', fontSize: 11, fontWeight: '700' }}>{t('Delete')}</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
@@ -109,7 +110,7 @@ export default function TripPlanningScreen({ navigation }) {
           </>
         )}
 
-        <SectionHeader title="Select Crossing" dark={dark} />
+        <SectionHeader title={t('Select Crossing')} dark={dark} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -136,7 +137,7 @@ export default function TripPlanningScreen({ navigation }) {
         </ScrollView>
 
         {/* Arrival time pickers */}
-        <SectionHeader title="I Want to Arrive At" dark={dark} />
+        <SectionHeader title={t('I Want to Arrive At')} dark={dark} />
         <Card dark={dark}>
           <View style={{ padding: 16 }}>
             <View style={styles.pickerRow}>
@@ -151,7 +152,7 @@ export default function TripPlanningScreen({ navigation }) {
                   style={[styles.pickerBtn, { backgroundColor: c.inputBg }]}
                 >
                   <Text style={[styles.pickerValue, { color: c.text }]}>{p.value}</Text>
-                  <Text style={{ fontSize: 10, color: c.subtext, marginTop: 2 }}>tap to change</Text>
+                  <Text style={{ fontSize: 10, color: c.subtext, marginTop: 2 }}>{t('tap to change')}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -161,15 +162,15 @@ export default function TripPlanningScreen({ navigation }) {
         {/* Results */}
         {crossing ? (
           <>
-            <SectionHeader title="Your Leave-By Plan" dark={dark} />
+            <SectionHeader title={t('Your Leave-By Plan')} dark={dark} />
             <Card dark={dark}>
               <View style={{ padding: 16 }}>
                 <View style={styles.planGrid}>
                   {[
-                    { l: 'Drive Time', v: `${crossing.driveMin || 0} min`, color: c.text },
-                    { l: 'Border Wait', v: `${crossing.wait} min`, color: waitColor(crossing.wait) },
-                    { l: 'Total Trip', v: `${totalTrip} min`, color: c.text },
-                    { l: '🚗 Leave By', v: leaveByStr, color: BLUE },
+                    { l: t('Drive Time'), v: t('{n} min', { n: crossing.driveMin || 0 }), color: c.text },
+                    { l: t('Border Wait'), v: crossing.wait != null ? t('{n} min', { n: crossing.wait }) : '—', color: waitColor(crossing.wait) },
+                    { l: t('Total Trip'), v: t('{n} min', { n: totalTrip }), color: c.text },
+                    { l: t('🚗 Leave By'), v: leaveByStr, color: BLUE },
                   ].map((item) => (
                     <View key={item.l} style={styles.planCell}>
                       <Text style={[styles.planLabel, { color: c.subtext }]}>{item.l}</Text>
@@ -193,8 +194,8 @@ export default function TripPlanningScreen({ navigation }) {
               >
                 <Text style={styles.notifBtnText}>
                   {notifScheduled
-                    ? `✓ Reminder set for ${leaveByStr}`
-                    : `🔔 Remind Me to Leave at ${leaveByStr}`}
+                    ? t('✓ Reminder set for {time}', { time: leaveByStr })
+                    : t('🔔 Remind Me to Leave at {time}', { time: leaveByStr })}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -204,30 +205,30 @@ export default function TripPlanningScreen({ navigation }) {
               style={[styles.secondaryBtn, { backgroundColor: c.card, marginTop: 10 }]}
             >
               <Text style={[styles.secondaryBtnText, { color: BLUE }]}>
-                📊 View Full Details for {crossing.name}
+                {t('📊 View Full Details for {name}', { name: crossing.name })}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => {
                 saveTripTemplate({
-                  name: `${crossing.name} Trip`,
+                  name: t('{name} Trip', { name: crossing.name }),
                   crossingId: crossing.id,
                   laneType,
-                  threshold: crossing.wait,
+                  threshold: crossing.wait ?? 20,
                   arrival: `${arrHour}:${arrMin} ${arrAmPm}`,
                 });
               }}
               style={[styles.secondaryBtn, { backgroundColor: c.card, marginTop: 10 }]}
             >
-              <Text style={[styles.secondaryBtnText, { color: GREEN }]}>💾 Save As Trip Template</Text>
+              <Text style={[styles.secondaryBtnText, { color: GREEN }]}>{t('💾 Save As Trip Template')}</Text>
             </TouchableOpacity>
           </>
         ) : (
           <View style={styles.emptyBlock}>
             <Text style={{ fontSize: 40 }}>🗺️</Text>
             <Text style={[styles.emptyText, { color: c.subtext }]}>
-              Select a crossing above to plan your trip
+              {t('Select a crossing above to plan your trip')}
             </Text>
           </View>
         )}

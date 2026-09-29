@@ -1,52 +1,22 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { GREEN, ORANGE, RED } from '../data';
-import { SectionHeader, Card } from '../components/UI';
-
-const diffColor = (diff) => {
-  const abs = Math.abs(diff);
-  if (abs <= 5) return GREEN;
-  if (abs <= 15) return ORANGE;
-  return RED;
-};
-const diffLabel = (diff) => {
-  if (diff === 0) return 'Exact!';
-  if (diff > 0) return `+${diff}m longer`;
-  return `${diff}m shorter`;
-};
+import { t } from '../i18n';
 
 export default function TripsScreen({ navigation }) {
-  const { dark, trips, clearTrips, completedTrips } = useApp();
+  const { dark, completedTrips } = useApp();
 
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
   const card = dark ? '#2C2C2E' : '#fff';
   const text = dark ? '#fff' : '#000';
   const sub = '#8E8E93';
 
-  const totalTime = trips.reduce((s, t) => s + t.actual, 0);
-  const avgAccuracy = trips.length
-    ? Math.round(trips.filter((t) => Math.abs(t.diff) <= 5).length / trips.length * 100)
-    : 0;
-
-  const handleClear = () => {
-    Alert.alert('Clear Trip History', 'This will delete all saved trips. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: clearTrips },
-    ]);
-  };
-
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <View style={[styles.header, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-        <Text style={[styles.title, { color: text }]}>My Trips</Text>
-        {trips.length > 0 && (
-          <TouchableOpacity onPress={handleClear}>
-            <Text style={{ color: RED, fontSize: 15, fontWeight: '600' }}>Clear</Text>
-          </TouchableOpacity>
-        )}
+        <Text style={[styles.title, { color: text }]}>{t('My Trips')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -59,10 +29,10 @@ export default function TripsScreen({ navigation }) {
           <Text style={styles.tripLogEmoji}>📡</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.tripLogTitle, { color: dark ? '#fff' : '#000' }]}>
-              Tracked Trips  {completedTrips.length > 0 ? `(${completedTrips.length})` : ''}
+              {t('Tracked Trips')}  {completedTrips.length > 0 ? `(${completedTrips.length})` : ''}
             </Text>
             <Text style={{ fontSize: 12, color: '#8E8E93' }}>
-              Real wait times from "I'm In Line" sessions
+              {t('Real wait times from "I\'m In Line" sessions')}
             </Text>
           </View>
           <Text style={{ color: '#007AFF', fontSize: 20 }}>›</Text>
@@ -76,73 +46,13 @@ export default function TripsScreen({ navigation }) {
         >
           <Text style={styles.tripLogEmoji}>🗺️</Text>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.tripLogTitle, { color: dark ? '#fff' : '#000' }]}>Trip Planner</Text>
+            <Text style={[styles.tripLogTitle, { color: dark ? '#fff' : '#000' }]}>{t('Trip Planner')}</Text>
             <Text style={{ fontSize: 12, color: '#8E8E93' }}>
-              Pick a crossing → get leave-by time + reminder
+              {t('Pick a crossing → get leave-by time + reminder')}
             </Text>
           </View>
           <Text style={{ color: '#30D158', fontSize: 20 }}>›</Text>
         </TouchableOpacity>
-        {/* Stats */}
-        {trips.length > 0 && (
-          <View style={[styles.statsRow, { backgroundColor: card }]}>
-            {[
-              { label: 'Total Trips', value: trips.length, color: text },
-              { label: 'Prediction Accuracy', value: `${avgAccuracy}%`, color: text },
-              { label: 'Total Wait Time', value: `${totalTime}m`, color: text },
-            ].map((s) => (
-              <View key={s.label} style={styles.statItem}>
-                <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Trip list */}
-        <SectionHeader title={`${trips.length} Saved Trips`} dark={dark} />
-
-        {trips.length === 0 ? (
-          <View style={{ padding: 50, alignItems: 'center' }}>
-            <Text style={{ fontSize: 40 }}>🗺️</Text>
-            <Text style={[styles.emptyTitle, { color: text }]}>No Trips Yet</Text>
-            <Text style={{ fontSize: 14, color: sub, textAlign: 'center', marginTop: 8, lineHeight: 20 }}>
-              After crossing, use the home screen banner to log your actual wait time.
-            </Text>
-          </View>
-        ) : (
-          trips.map((trip) => {
-            const dc = diffColor(trip.diff);
-            return (
-              <View key={trip.id} style={[styles.tripCard, { backgroundColor: card }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text style={{ fontSize: 28 }}>{trip.flag}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.tripName, { color: text }]}>{trip.crossingName}</Text>
-                    <Text style={{ fontSize: 12, color: sub }}>{new Date(trip.ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <View style={[styles.diffBadge, { backgroundColor: `${dc}22`, borderColor: dc }]}>
-                      <Text style={[styles.diffText, { color: dc }]}>{diffLabel(trip.diff)}</Text>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.tripStats}>
-                  {[
-                    { l: 'Predicted', v: `${trip.predicted}m`, c: sub },
-                    { l: 'Actual', v: `${trip.actual}m`, c: text },
-                    { l: 'Lane', v: trip.lane, c: sub },
-                  ].map((s) => (
-                    <View key={s.l} style={styles.tripStatItem}>
-                      <Text style={[styles.tripStatValue, { color: s.c }]}>{s.v}</Text>
-                      <Text style={styles.tripStatLabel}>{s.l}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            );
-          })
-        )}
       </ScrollView>
     </SafeAreaView>
   );

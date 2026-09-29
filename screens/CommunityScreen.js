@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { BLUE } from '../data';
 import { PillBtn, SectionHeader } from '../components/UI';
 import ReportCard from '../components/ReportCard';
+import { t } from '../i18n';
 
 const FILTERS = ['All', '🇲🇽 Mexico', '🇨🇦 Canada'];
 const SORT_OPTIONS = ['Newest', 'Most Helpful', 'Crossing'];
@@ -38,9 +39,9 @@ export default function CommunityScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <View style={[styles.header, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-        <Text style={[styles.title, { color: text }]}>Community</Text>
+        <Text style={[styles.title, { color: text }]}>{t('Community')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Report', { crossing: null })} style={[styles.addBtn]}>
-          <Text style={styles.addBtnText}>+ Report</Text>
+          <Text style={styles.addBtnText}>+ {t('Report')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -48,14 +49,14 @@ export default function CommunityScreen({ navigation }) {
         {/* Region pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12, marginBottom: 4, paddingLeft: 16 }} contentContainerStyle={{ gap: 8 }}>
           {FILTERS.map((f) => (
-            <PillBtn key={f} label={f} active={region === f} onPress={() => setRegion(f)} dark={dark} />
+            <PillBtn key={f} label={t(f)} active={region === f} onPress={() => setRegion(f)} dark={dark} />
           ))}
         </ScrollView>
 
         {/* Sort pills */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8, paddingLeft: 16 }} contentContainerStyle={{ gap: 8 }}>
           {SORT_OPTIONS.map((s) => (
-            <PillBtn key={s} label={s} active={sort === s} onPress={() => setSort(s)} dark={dark} />
+            <PillBtn key={s} label={t(s)} active={sort === s} onPress={() => setSort(s)} dark={dark} />
           ))}
         </ScrollView>
 
@@ -63,27 +64,31 @@ export default function CommunityScreen({ navigation }) {
         <View style={[styles.statsBar, { backgroundColor: card }]}>
           <View style={styles.statItem}>
             <Text style={[styles.statNum, { color: text }]}>{reports.length}</Text>
-            <Text style={styles.statLbl}>Total Reports</Text>
+            <Text style={styles.statLbl}>{t('Total Reports')}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: dark ? '#48484A' : '#E5E5EA' }]} />
           <View style={styles.statItem}>
             <Text style={[styles.statNum, { color: text }]}>{reports.filter((r) => Date.now() - new Date(r.ts) < 3600000).length}</Text>
-            <Text style={styles.statLbl}>Last Hour</Text>
+            <Text style={styles.statLbl}>{t('Last Hour')}</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: dark ? '#48484A' : '#E5E5EA' }]} />
           <View style={styles.statItem}>
             <Text style={[styles.statNum, { color: text }]}>{Math.round(reports.reduce((s, r) => s + (r.upvotes / Math.max(r.upvotes + r.downvotes, 1)) * 100, 0) / Math.max(reports.length, 1))}%</Text>
-            <Text style={styles.statLbl}>Accuracy</Text>
+            <Text style={styles.statLbl}>{t('Accuracy')}</Text>
           </View>
         </View>
 
+        <Text style={{ fontSize: 12, color: sub, textAlign: 'center', marginHorizontal: 24, marginTop: 12 }}>
+          {t("Preview: reports are saved on this device only and aren't shared with other users yet.")}
+        </Text>
+
         {/* Reports */}
-        <SectionHeader title={`${sorted.length} Reports`} dark={dark} />
+        <SectionHeader title={t('{n} Reports', { n: sorted.length })} dark={dark} />
         {sorted.length === 0 ? (
           <View style={{ padding: 40, alignItems: 'center' }}>
             <Text style={{ fontSize: 32 }}>🔍</Text>
-            <Text style={[styles.emptyTitle, { color: text }]}>No Reports Yet</Text>
-            <Text style={{ fontSize: 14, color: sub, textAlign: 'center', marginTop: 6 }}>Be the first to report a wait time!</Text>
+            <Text style={[styles.emptyTitle, { color: text }]}>{t('No Reports Yet')}</Text>
+            <Text style={{ fontSize: 14, color: sub, textAlign: 'center', marginTop: 6 }}>{t('Be the first to report a wait time!')}</Text>
           </View>
         ) : (
           sorted.map((r) => (
@@ -103,16 +108,16 @@ export default function CommunityScreen({ navigation }) {
 
         {adminMode && hiddenReports.length > 0 && (
           <>
-            <SectionHeader title={`Hidden Reports (${hiddenReports.length})`} dark={dark} />
+            <SectionHeader title={t('Hidden Reports ({n})', { n: hiddenReports.length })} dark={dark} />
             {hiddenReports.map((r) => (
               <View key={r.id} style={[styles.hiddenCard, { backgroundColor: card }]}> 
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.hiddenTitle, { color: text }]}>{r.crossingName} · {r.lane}</Text>
-                  <Text style={styles.hiddenMeta}>Flags: {r.flags ?? 0} · Trust: {Math.round(r.trustScore ?? 0)}%</Text>
+                  <Text style={[styles.hiddenTitle, { color: text }]}>{r.crossingName} · {t(r.lane)}</Text>
+                  <Text style={styles.hiddenMeta}>{t('Flags: {f} · Trust: {n}%', { f: r.flags ?? 0, n: Math.round(r.trustScore ?? 0) })}</Text>
                   {!!r.note && <Text style={[styles.hiddenNote, { color: sub }]} numberOfLines={2}>{r.note}</Text>}
                 </View>
                 <TouchableOpacity onPress={() => restoreReport(r.id)} style={styles.restoreBtn}>
-                  <Text style={styles.restoreTxt}>Restore</Text>
+                  <Text style={styles.restoreTxt}>{t('Restore')}</Text>
                 </TouchableOpacity>
               </View>
             ))}

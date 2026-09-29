@@ -6,12 +6,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ALL_CROSSINGS, BLUE, GREEN, ORANGE, waitColor } from '../data';
 import { PillBtn, WaitPill } from '../components/UI';
 import { useApp } from '../context/AppContext';
+import { t } from '../i18n';
 
 const FEATURES = [
   { icon: '⏱', title: 'See Wait Times', desc: 'Real updates every 5 minutes' },
-  { icon: '🔮', title: 'Plan Your Trip', desc: 'Know when to leave and when waits are better' },
-  { icon: '🗓', title: 'Best Times', desc: 'Find the fastest crossing days and times' },
-  { icon: '👥', title: 'Community Tips', desc: 'See reports from other travelers' },
+  { icon: '🔮', title: 'Plan Your Trip', desc: 'Work out when to leave based on the current wait' },
+  { icon: '📍', title: 'Track Your Crossing', desc: 'Log how long each crossing really takes' },
 ];
 
 const TIMES = ['Early Morning (4–7am)', 'Morning (7–10am)', 'Midday (10am–1pm)', 'Afternoon (1–5pm)', 'Evening (5–9pm)', 'I vary'];
@@ -21,7 +21,7 @@ export default function OnboardingScreen({ onComplete }) {
   const [selected, setSelected] = useState([]);
   const [borderFilter, setBorderFilter] = useState('All');
   const [crossingTime, setCrossingTime] = useState('');
-  const { dark } = useApp();
+  const { dark, langPref, setLangPref } = useApp();
 
   const bg = dark ? '#1C1C1E' : '#F2F2F7';
   const card = dark ? '#2C2C2E' : '#fff';
@@ -46,8 +46,13 @@ export default function OnboardingScreen({ onComplete }) {
         <View style={{ alignItems: 'center', marginBottom: 40 }}>
           <Text style={{ fontSize: 72, marginBottom: 16 }}>🛂</Text>
           <Text style={[styles.heroTitle, { color: text, fontSize: 44 }]}>CrossETA</Text>
-          <Text style={{ fontSize: 19, color: '#8E8E93', marginTop: 8, fontWeight: '500' }}>Border crossing wait times</Text>
+          <Text style={{ fontSize: 19, color: '#8E8E93', marginTop: 8, fontWeight: '500' }}>{t('Border crossing wait times')}</Text>
           <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 6 }}>Created by Diego V / Stewy</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14 }}>
+            {[['auto', 'Auto'], ['en', 'English'], ['es', 'Español']].map(([k, label]) => (
+              <PillBtn key={k} label={k === 'auto' ? t('Auto') : label} active={langPref === k} onPress={() => setLangPref(k)} dark={dark} />
+            ))}
+          </View>
         </View>
         {FEATURES.map((f) => (
           <View key={f.icon} style={styles.featureRow}>
@@ -55,14 +60,14 @@ export default function OnboardingScreen({ onComplete }) {
               <Text style={{ fontSize: 32 }}>{f.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.featureTitle, { color: text, fontSize: 18, fontWeight: '700' }]}>{f.title}</Text>
-              <Text style={{ fontSize: 15, color: '#8E8E93', marginTop: 4, fontWeight: '500' }}>{f.desc}</Text>
+              <Text style={[styles.featureTitle, { color: text, fontSize: 18, fontWeight: '700' }]}>{t(f.title)}</Text>
+              <Text style={{ fontSize: 15, color: '#8E8E93', marginTop: 4, fontWeight: '500' }}>{t(f.desc)}</Text>
             </View>
           </View>
         ))}
         <TouchableOpacity onPress={() => setStep(1)} style={styles.primaryBtn} activeOpacity={0.85}>
           <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtnGrad}>
-            <Text style={styles.primaryBtnText}>Get Started</Text>
+            <Text style={styles.primaryBtnText}>{t('Get Started')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -78,14 +83,14 @@ export default function OnboardingScreen({ onComplete }) {
             <View key={i} style={[styles.dot, { width: i === 1 ? 20 : 8, backgroundColor: i === 1 ? BLUE : '#C7C7CC' }]} />
           ))}
         </View>
-        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>Choose Crossings</Text>
-        <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 6, fontWeight: '500' }}>Pick at least one to get started</Text>
+        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>{t('Choose Crossings')}</Text>
+        <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 6, fontWeight: '500' }}>{t('Pick at least one to get started')}</Text>
       </View>
       {/* Filter pills */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 4 }} contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}>
         {['All', 'MX', 'CA'].map((f) => (
           <View key={f} style={{ marginRight: 8 }}>
-            <PillBtn label={f === 'All' ? 'All' : f === 'MX' ? '🇲🇽 Mexico' : '🇨🇦 Canada'} active={borderFilter === f} onPress={() => setBorderFilter(f)} dark={dark} />
+            <PillBtn label={f === 'All' ? t('All') : f === 'MX' ? t('🇲🇽 Mexico') : t('🇨🇦 Canada')} active={borderFilter === f} onPress={() => setBorderFilter(f)} dark={dark} />
           </View>
         ))}
       </ScrollView>
@@ -112,11 +117,11 @@ export default function OnboardingScreen({ onComplete }) {
         <TouchableOpacity onPress={() => selected.length > 0 && setStep(2)} activeOpacity={0.85} style={[styles.primaryBtn, { marginHorizontal: 0 }]}>
           {selected.length > 0 ? (
             <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtnGrad}>
-              <Text style={styles.primaryBtnText}>Continue ({selected.length} selected)</Text>
+              <Text style={styles.primaryBtnText}>{t('Continue ({n} selected)', { n: selected.length })}</Text>
             </LinearGradient>
           ) : (
             <View style={[styles.primaryBtnGrad, { backgroundColor: '#C7C7CC' }]}>
-              <Text style={styles.primaryBtnText}>Continue ({selected.length} selected)</Text>
+              <Text style={styles.primaryBtnText}>{t('Continue ({n} selected)', { n: selected.length })}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -133,25 +138,25 @@ export default function OnboardingScreen({ onComplete }) {
             <View key={i} style={[styles.dot, { width: i === 2 ? 20 : 8, backgroundColor: i === 2 ? BLUE : '#C7C7CC' }]} />
           ))}
         </View>
-        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>When do you cross?</Text>
+        <Text style={[styles.stepTitle, { color: text, fontSize: 28 }]}>{t('When do you cross?')}</Text>
         <Text style={{ fontSize: 16, color: '#8E8E93', marginTop: 6, fontWeight: '500', marginBottom: 28 }}>
-          We'll customize for your schedule
+          {t("We'll customize for your schedule")}
         </Text>
-        {TIMES.map((t) => (
+        {TIMES.map((tm) => (
           <TouchableOpacity
-            key={t}
-            onPress={() => setCrossingTime(t)}
+            key={tm}
+            onPress={() => setCrossingTime(tm)}
             style={[
               styles.timeOption,
               {
-                backgroundColor: crossingTime === t ? 'rgba(0,122,255,0.1)' : card,
-                borderColor: crossingTime === t ? BLUE : 'transparent',
+                backgroundColor: crossingTime === tm ? 'rgba(0,122,255,0.1)' : card,
+                borderColor: crossingTime === tm ? BLUE : 'transparent',
               },
             ]}
             activeOpacity={0.7}
           >
-            <Text style={[{ fontSize: 15, fontWeight: '600', flex: 1 }, { color: text }]}>{t}</Text>
-            {crossingTime === t && <Text style={{ color: BLUE, fontSize: 18 }}>✓</Text>}
+            <Text style={[{ fontSize: 15, fontWeight: '600', flex: 1 }, { color: text }]}>{t(tm)}</Text>
+            {crossingTime === tm && <Text style={{ color: BLUE, fontSize: 18 }}>✓</Text>}
           </TouchableOpacity>
         ))}
         <TouchableOpacity
@@ -161,11 +166,11 @@ export default function OnboardingScreen({ onComplete }) {
         >
           {crossingTime ? (
             <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryBtnGrad}>
-              <Text style={styles.primaryBtnText}>Start Using CrossETA</Text>
+              <Text style={styles.primaryBtnText}>{t('Start Using CrossETA')}</Text>
             </LinearGradient>
           ) : (
             <View style={[styles.primaryBtnGrad, { backgroundColor: '#C7C7CC' }]}>
-              <Text style={styles.primaryBtnText}>Start Using CrossETA</Text>
+              <Text style={styles.primaryBtnText}>{t('Start Using CrossETA')}</Text>
             </View>
           )}
         </TouchableOpacity>

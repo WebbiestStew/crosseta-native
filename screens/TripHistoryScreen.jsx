@@ -12,6 +12,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { colors, BLUE, GREEN, ORANGE, RED } from '../data';
 import { SectionHeader, Card, Sparkline } from '../components/UI';
+import { t, locale } from '../i18n';
 
 const LANE_LABELS = { standard: 'Standard', sentri: 'SENTRI', ready: 'Ready' };
 const LANE_COLORS = { standard: BLUE, sentri: '#BF5AF2', ready: GREEN };
@@ -23,7 +24,7 @@ const LANE_COLORS = { standard: BLUE, sentri: '#BF5AF2', ready: GREEN };
  */
 function formatDateTime(ts) {
   const d = new Date(ts);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(locale(), {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -94,11 +95,11 @@ export default function TripHistoryScreen({ navigation }) {
 
   const handleClear = () => {
     Alert.alert(
-      'Clear Trip History',
-      'Delete all tracked trips? This cannot be undone.',
+      t('Clear Trip History'),
+      t('Delete all tracked trips? This cannot be undone.'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete All', style: 'destructive', onPress: clearCompletedTrips },
+        { text: t('Cancel'), style: 'cancel' },
+        { text: t('Delete All'), style: 'destructive', onPress: clearCompletedTrips },
       ],
     );
   };
@@ -111,12 +112,12 @@ export default function TripHistoryScreen({ navigation }) {
         borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8} style={styles.backBtn}>
-          <Text style={[styles.backBtnText, { color: BLUE }]}>‹ Back</Text>
+          <Text style={[styles.backBtnText, { color: BLUE }]}>‹ {t('Back')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: c.text }]}>Trip Log</Text>
+        <Text style={[styles.title, { color: c.text }]}>{t('Trip Log')}</Text>
         {sorted.length > 0 ? (
           <TouchableOpacity onPress={handleClear} hitSlop={8}>
-            <Text style={[styles.clearText, { color: RED }]}>Clear</Text>
+            <Text style={[styles.clearText, { color: RED }]}>{t('Clear')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.clearPlaceholder} />
@@ -129,11 +130,9 @@ export default function TripHistoryScreen({ navigation }) {
         <View style={[styles.infoBanner, { backgroundColor: dark ? '#1C2E4A' : '#E8F1FF' }]}>
           <Text style={styles.infoEmoji}>📡</Text>
           <View style={styles.infoTextBlock}>
-            <Text style={[styles.infoTitle, { color: c.text }]}>How does this help?</Text>
+            <Text style={[styles.infoTitle, { color: c.text }]}>{t('How does this help?')}</Text>
             <Text style={[styles.infoBody, { color: c.subtext }]}>
-              Every trip you track is anonymously contributed to CrossETA's prediction
-              model — giving everyone more accurate wait-time forecasts over time.
-              No personal data is ever stored.
+              {t('Trips you track are saved on this device only, so you can see how your real crossing times compare with the posted waits.')}
             </Text>
           </View>
         </View>
@@ -141,16 +140,16 @@ export default function TripHistoryScreen({ navigation }) {
         {/* Stats row */}
         {sorted.length > 0 && (
           <>
-            <SectionHeader title="Summary" dark={dark} />
+            <SectionHeader title={t('Summary')} dark={dark} />
             <View style={[styles.statsRow, { backgroundColor: c.card }]}>
               {[
-                { label: 'Trips Tracked', value: String(sorted.length) },
+                { label: t('Trips Tracked'), value: String(sorted.length) },
                 {
-                  label: 'Total Wait',
+                  label: t('Total Wait'),
                   value: formatWait(sorted.reduce((s, t) => s + t.actualWait, 0)),
                 },
                 {
-                  label: 'Avg Wait',
+                  label: t('Avg Wait'),
                   value: sorted.length
                     ? formatWait(Math.round(sorted.reduce((s, t) => s + t.actualWait, 0) / sorted.length))
                     : '—',
@@ -168,25 +167,25 @@ export default function TripHistoryScreen({ navigation }) {
         {/* Personal analytics */}
         {analytics && (
           <>
-            <SectionHeader title="My Patterns" dark={dark} />
+            <SectionHeader title={t('My Patterns')} dark={dark} />
             <View style={[styles.analyticsGrid, { backgroundColor: c.card }]}>
               {[
                 {
-                  label: 'Fav Crossing',
+                  label: t('Fav Crossing'),
                   value: analytics.topCrossing ? analytics.topCrossing.flag : '🚗',
                   sub: analytics.topCrossing ? analytics.topCrossing.name : '—',
                   color: BLUE,
                 },
                 {
-                  label: 'Best Day',
-                  value: analytics.bestDay ?? '—',
-                  sub: analytics.bestDayAvg != null ? `avg ${analytics.bestDayAvg} min` : '',
+                  label: t('Best Day'),
+                  value: analytics.bestDay ? t(analytics.bestDay) : '—',
+                  sub: analytics.bestDayAvg != null ? t('avg {n} min', { n: analytics.bestDayAvg }) : '',
                   color: GREEN,
                 },
                 {
-                  label: 'Avg Wait',
+                  label: t('Avg Wait'),
                   value: `${analytics.avgWait}m`,
-                  sub: `best: ${analytics.bestWait} min`,
+                  sub: t('best: {n} min', { n: analytics.bestWait }),
                   color: ORANGE,
                 },
               ].map(({ label, value, sub, color }) => (
@@ -201,7 +200,7 @@ export default function TripHistoryScreen({ navigation }) {
         )}
 
         {/* Trip list */}
-        <SectionHeader title={`Trips (${sorted.length})`} dark={dark} />
+        <SectionHeader title={t('Trips ({n})', { n: sorted.length })} dark={dark} />
 
         {sorted.length === 0 ? (
           <EmptyState dark={dark} />
@@ -254,7 +253,7 @@ function TripRow({ trip, crossing, dark, chartWidth }) {
         <View style={styles.tripRight}>
           <WaitBadge minutes={trip.actualWait} />
           <View style={[styles.lanePill, { backgroundColor: laneColor }]}>
-            <Text style={styles.lanePillText}>{LANE_LABELS[trip.laneType] ?? trip.laneType}</Text>
+            <Text style={styles.lanePillText}>{t(LANE_LABELS[trip.laneType] ?? trip.laneType)}</Text>
           </View>
         </View>
       </View>
@@ -271,7 +270,7 @@ function TripRow({ trip, crossing, dark, chartWidth }) {
           <View style={styles.sparkLegend}>
             <View style={[styles.legendDot, { backgroundColor: laneColor }]} />
             <Text style={[styles.legendText, { color: c.subtext }]}>
-              {new Date(trip.startTime).toLocaleString(undefined, { weekday: 'short', hour: 'numeric' })}
+              {new Date(trip.startTime).toLocaleString(locale(), { weekday: 'short', hour: 'numeric' })}
             </Text>
           </View>
         </View>
@@ -287,10 +286,9 @@ function EmptyState({ dark }) {
   return (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyEmoji}>🚗</Text>
-      <Text style={[styles.emptyTitle, { color: c.text }]}>No trips yet</Text>
+      <Text style={[styles.emptyTitle, { color: c.text }]}>{t('No trips yet')}</Text>
       <Text style={[styles.emptyBody, { color: c.subtext }]}>
-        Tap "I'm In Line" on the home screen to start tracking a crossing. Your wait
-        times will appear here and help improve predictions for everyone.
+        {t('Tap "I\'m In Line" on the home screen to start tracking a crossing. Your wait times will appear here.')}
       </Text>
     </View>
   );

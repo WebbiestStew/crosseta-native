@@ -5,6 +5,7 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import { useApp } from '../context/AppContext';
 import { BLUE, waitColor, colors, CROSSING_COORDS } from '../data';
+import { t } from '../i18n';
 
 export default function MapScreen({ navigation }) {
   const { crossings, dark } = useApp();
@@ -19,9 +20,9 @@ export default function MapScreen({ navigation }) {
         borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={{ color: BLUE, fontSize: 17 }}>‹ Back</Text>
+          <Text style={{ color: BLUE, fontSize: 17 }}>‹ {t('Back')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: c.text }]}>Border Map</Text>
+        <Text style={[styles.navTitle, { color: c.text }]}>{t('Border Map')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -42,7 +43,7 @@ export default function MapScreen({ navigation }) {
               onPress={() => setSelected(crossing)}
             >
               <View style={[styles.pin, { backgroundColor: pinBg }]}>
-                <Text style={styles.pinText}>{crossing.wait}m</Text>
+                <Text style={styles.pinText}>{crossing.wait != null ? `${crossing.wait}m` : '—'}</Text>
               </View>
             </Marker>
           );
@@ -59,13 +60,13 @@ export default function MapScreen({ navigation }) {
           </View>
           <View style={{ alignItems: 'flex-end', gap: 6 }}>
             <Text style={[styles.calloutWait, { color: waitColor(selected.wait) }]}>
-              {selected.wait} min
+              {selected.wait != null ? t('{n} min', { n: selected.wait }) : t('No live data')}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.navigate('Detail', { crossing: selected })}
               style={[styles.detailBtn, { backgroundColor: BLUE }]}
             >
-              <Text style={styles.detailBtnText}>Details →</Text>
+              <Text style={styles.detailBtnText}>{t('Details →')}</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={() => setSelected(null)} hitSlop={8} style={styles.closeBtn}>

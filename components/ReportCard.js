@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { WaitPill } from './UI';
 import { BLUE, GREEN, RED, ORANGE, timeAgo } from '../data';
+import { t } from '../i18n';
 
 /** Count how many OTHER reports corroborate this one (same crossing, lane, wait ±10 min). */
 function getVerifiedCount(allReports, report) {
@@ -30,14 +31,14 @@ export default function ReportCard({ report, allReports = [], myVote, feedbackDo
             <Text style={[styles.name, { color: text }]} numberOfLines={1}>{report.crossingName}</Text>
             <WaitPill wait={report.wait} small />
           </View>
-          <Text style={styles.meta}>{report.lane} · {timeAgo(report.time)}</Text>
+          <Text style={styles.meta}>{t(report.lane)} · {timeAgo(report.time)}</Text>
           {isVerified && (
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedText}>✓ Verified by {verifiedCount + 1}+ travelers</Text>
+              <Text style={styles.verifiedText}>{t('✓ Verified by {n}+ travelers', { n: verifiedCount + 1 })}</Text>
             </View>
           )}
           {report.note ? <Text style={[styles.note, { color: dark ? '#ccc' : '#333' }]}>{report.note}</Text> : null}
-          <Text style={styles.metaText}>Trust Score: {Math.max(0, Math.min(100, Math.round(report.trustScore ?? 60)))}%</Text>
+          <Text style={styles.metaText}>{t('Trust Score: {n}%', { n: Math.max(0, Math.min(100, Math.round(report.trustScore ?? 60))) })}</Text>
           <View style={styles.actions}>
             <TouchableOpacity onPress={() => onVote(report.id, 'up')} style={styles.voteBtn}>
               <Text style={[styles.voteTxt, { color: myVote === 'up' ? GREEN : (dark ? '#aaa' : '#666') }]}>
@@ -51,20 +52,20 @@ export default function ReportCard({ report, allReports = [], myVote, feedbackDo
             </TouchableOpacity>
             {!feedbackDone ? (
               <View style={styles.feedbackRow}>
-                <Text style={styles.metaText}>Accurate? </Text>
+                <Text style={styles.metaText}>{t('Accurate?')} </Text>
                 <TouchableOpacity onPress={() => onFeedback(report.id, 'yes')}>
-                  <Text style={[styles.feedbackBtn, { color: GREEN }]}>Yes</Text>
+                  <Text style={[styles.feedbackBtn, { color: GREEN }]}>{t('Yes')}</Text>
                 </TouchableOpacity>
                 <Text style={styles.metaText}> / </Text>
                 <TouchableOpacity onPress={() => onFeedback(report.id, 'no')}>
-                  <Text style={[styles.feedbackBtn, { color: RED }]}>No</Text>
+                  <Text style={[styles.feedbackBtn, { color: RED }]}>{t('No')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.metaText}>{feedbackDone === 'yes' ? '✓ Accurate' : '✗ Inaccurate'}</Text>
+              <Text style={styles.metaText}>{feedbackDone === 'yes' ? t('✓ Accurate') : t('✗ Inaccurate')}</Text>
             )}
             <TouchableOpacity onPress={() => onFlag?.(report.id)} style={styles.flagBtn}>
-              <Text style={styles.flagTxt}>🚩 Flag</Text>
+              <Text style={styles.flagTxt}>🚩 {t('Flag')}</Text>
             </TouchableOpacity>
           </View>
         </View>

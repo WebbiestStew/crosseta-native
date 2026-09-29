@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // ─── COLORS & THEME ───────────────────────────────────────────────────────────
 export const BLUE = '#007AFF';
 export const GREEN = '#30D158';
@@ -79,11 +80,13 @@ export const waitColor = (w) => {
   return RED;
 };
 
+export const waitLevel = (w) => (w == null || w < 0 ? null : w <= 15 ? 'Low' : w <= 40 ? 'Moderate' : 'High');
+
 export const waitLabel = (w) => {
-  if (w == null || w < 0) return 'Closed';
-  if (w <= 15) return 'Low';
-  if (w <= 40) return 'Moderate';
-  return 'High';
+  if (w == null || w < 0) return t('No data');
+  if (w <= 15) return t('Low');
+  if (w <= 40) return t('Moderate');
+  return t('High');
 };
 
 export const colors = (dark) => ({
@@ -159,88 +162,66 @@ const CANADA_BASE = [
   { id: 'SWEETGRASS', name: 'Sweetgrass', city: 'Sweetgrass, Montana', country: 'Sweetgrass', region: 'MT', is24h: true, driveMin: 0 },
 ];
 
-const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+// Crossings start with NO wait data. Real values come only from the CBP feed
+// (see fetch_cbp in context/AppContext.js); nothing here is simulated.
+const generateCrossing = (base, border) => ({
+  ...base,
+  border,
+  flag: border === 'MX' ? '🇲🇽' : '🇨🇦',
+  live: false,
+  updatedAt: null,
+  wait: null,
+  sentriWait: null,
+  readyWait: null,
+  laneStatus: null,
+  portStatus: null,
+  hoursText: null,
+  pedWait: null,
+  pedReadyWait: null,
+  comWait: null,
+  comFastWait: null,
+  trend: null,
+  predict1h: null,
+  predict3h: null,
+  sentriPredict1h: null,
+  sentriPredict3h: null,
+  readyPredict1h: null,
+  readyPredict3h: null,
+});
 
-const generateCrossing = (base, border) => {
-  const hour = new Date().getHours();
-  const isPeak = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
-  const wait = rnd(isPeak ? 25 : 5, isPeak ? 70 : 50);
-  const trend = Math.random() > 0.6 ? 'up' : Math.random() > 0.5 ? 'down' : 'stable';
-  const predict1h = Math.max(0, wait + (trend === 'up' ? 12 : trend === 'down' ? -8 : 2) + rnd(0, 5));
-  const predict3h = Math.max(0, wait + (trend === 'up' ? 22 : trend === 'down' ? -15 : 5) + rnd(0, 10));
+// Generic time-of-day shape used ONLY for rough "+1h / +3h" estimates. It is not
+// measured per-crossing history; any UI showing its output must say "Est.".
+const TYPICAL_HOURLY = Array.from({ length: 24 }, (_, h) =>
+  8 + (h >= 6 && h <= 9 ? 40 : 0) + (h >= 16 && h <= 19 ? 45 : 0) + (h >= 11 && h <= 13 ? 25 : 0));
 
-  const hourlyPattern = Array.from({ length: 24 }, (_, h) => {
-    const morning = h >= 6 && h <= 9 ? 40 : 0;
-    const evening = h >= 16 && h <= 19 ? 45 : 0;
-    const midday = h >= 11 && h <= 13 ? 25 : 0;
-    return Math.max(0, 8 + morning + evening + midday + rnd(0, 15));
-  });
-
-  const weeklyPattern = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => ({
-    day,
-    slots: ['6am', '9am', '12pm', '3pm', '6pm', '9pm'].map((slot) => {
-      const isWeekend = day === 'Sat' || day === 'Sun';
-      const isEveningFri = day === 'Fri' && (slot === '3pm' || slot === '6pm');
-      let w = rnd(5, 35);
-      if (isWeekend && (slot === '9am' || slot === '12pm')) w += 30;
-      if (isEveningFri) w += 20;
-      return { slot, wait: w };
-    }),
-  }));
-
-  const allSlots = weeklyPattern.flatMap((d) => d.slots.map((s) => ({ ...s, day: d.day })));
-  const best = allSlots.sort((a, b) => a.wait - b.wait)[0];
-
-  return {
-    ...base,
-    border,
-    flag: border === 'MX' ? '🇲🇽' : '🇨🇦',
-    wait,
-    sentriWait: Math.max(0, Math.floor(wait * 0.35)),
-    readyWait: Math.max(0, Math.floor(wait * 0.65)),
-    trend,
-    predict1h,
-    predict3h,
-    sentriPredict1h: Math.max(0, Math.floor(predict1h * 0.35)),
-    sentriPredict3h: Math.max(0, Math.floor(predict3h * 0.35)),
-    readyPredict1h: Math.max(0, Math.floor(predict1h * 0.65)),
-    readyPredict3h: Math.max(0, Math.floor(predict3h * 0.65)),
-    confidence: rnd(78, 97),
-    dataAge: rnd(1, 12),
-    predictionAccuracy: rnd(82, 96),
-    hourlyPattern,
-    weeklyPattern,
-    bestTimeToday: `${best.day} ${best.slot} (~${best.wait} min)`,
-    sparkline: Array.from({ length: 10 }, () => rnd(5, 65)),
-  };
+export const estimateWait = (wait, hoursAhead, from = new Date()) => {
+  if (wait == null) return null;
+  const h = from.getHours();
+  const ratio = TYPICAL_HOURLY[(h + hoursAhead) % 24] / TYPICAL_HOURLY[h];
+  return Math.max(0, Math.round(wait * Math.min(2, Math.max(0.5, ratio))));
 };
+
+export const dataAgeMin = (c) =>
+  c?.updatedAt ? Math.max(0, Math.round((Date.now() - c.updatedAt) / 60000)) : null;
+
+export const fmtMin = (v, suffix = 'm') => (v == null ? '—' : `${v}${suffix}`);
+
+// Ascending by wait; crossings with no data sort last.
+export const byWaitAsc = (a, b) =>
+  (a.wait ?? Infinity) === (b.wait ?? Infinity) ? 0 : (a.wait ?? Infinity) - (b.wait ?? Infinity);
 
 export const ALL_CROSSINGS = [
   ...MEXICO_BASE.map((c) => generateCrossing(c, 'MX')),
   ...CANADA_BASE.map((c) => generateCrossing(c, 'CA')),
 ];
 
-const _now = Date.now();
-export const SEED_REPORTS = [
-  { id: 'r1', crossingId: 'SAN_YSIDRO', crossingName: 'San Ysidro', border: 'MX', lane: 'Standard', wait: 55, note: 'Really backed up, construction in lanes 4–6.', author: 'Maria G.', initials: 'MG', avatarColor: BLUE, time: 12, upvotes: 14, downvotes: 1, region: 'California', ts: new Date(_now - 12 * 60000).toISOString() },
-  { id: 'r2', crossingId: 'OTAY_MESA', crossingName: 'Otay Mesa', border: 'MX', lane: 'SENTRI', wait: 8, note: 'SENTRI flying through, under 10 min!', author: 'James R.', initials: 'JR', avatarColor: GREEN, time: 28, upvotes: 9, downvotes: 0, region: 'California', ts: new Date(_now - 28 * 60000).toISOString() },
-  { id: 'r3', crossingId: 'AMBASSADOR', crossingName: 'Ambassador Bridge', border: 'CA', lane: 'NEXUS', wait: 12, note: 'Nexus lane open, went smooth.', author: 'Sarah T.', initials: 'ST', avatarColor: ORANGE, time: 45, upvotes: 7, downvotes: 1, region: 'Great Lakes', ts: new Date(_now - 45 * 60000).toISOString() },
-  { id: 'r4', crossingId: 'LAREDO_I', crossingName: 'Laredo I', border: 'MX', lane: 'Standard', wait: 78, note: 'Massive backup, accident near bridge approach.', author: 'Carlos M.', initials: 'CM', avatarColor: RED, time: 67, upvotes: 22, downvotes: 2, region: 'Texas South', ts: new Date(_now - 67 * 60000).toISOString() },
-  { id: 'r5', crossingId: 'PEACE_ARCH', crossingName: 'Peace Arch / Blaine', border: 'CA', lane: 'Ready Lane', wait: 18, note: 'Ready Lane moving well.', author: 'Priya K.', initials: 'PK', avatarColor: PURPLE, time: 90, upvotes: 5, downvotes: 0, region: 'Pacific Northwest', ts: new Date(_now - 90 * 60000).toISOString() },
-  { id: 'r6', crossingId: 'MCALLEN_HIDALGO', crossingName: 'McAllen-Hidalgo', border: 'MX', lane: 'Standard', wait: 42, note: 'Moderate wait, extra agents on duty.', author: 'Luis F.', initials: 'LF', avatarColor: ORANGE, time: 110, upvotes: 3, downvotes: 1, region: 'Texas Valley', ts: new Date(_now - 110 * 60000).toISOString() },
-  { id: 'r7', crossingId: 'RAINBOW', crossingName: 'Rainbow Bridge', border: 'CA', lane: 'NEXUS', wait: 5, note: 'NEXUS basically empty right now.', author: 'Dave W.', initials: 'DW', avatarColor: GREEN, time: 135, upvotes: 11, downvotes: 0, region: 'Niagara / Northeast', ts: new Date(_now - 135 * 60000).toISOString() },
-];
+export const SEED_REPORTS = [];
 
-export const SEED_TRIPS = [
-  { id: 't1', crossingId: 'SAN_YSIDRO', crossingName: 'San Ysidro', lane: 'SENTRI', flag: '🇲🇽', actual: 12, predicted: 10, diff: 2, ts: new Date('2026-03-01T09:30:00').toISOString() },
-  { id: 't2', crossingId: 'AMBASSADOR', crossingName: 'Ambassador Bridge', lane: 'NEXUS', flag: '🇨🇦', actual: 35, predicted: 28, diff: 7, ts: new Date('2026-02-27T14:00:00').toISOString() },
-  { id: 't3', crossingId: 'OTAY_MESA', crossingName: 'Otay Mesa', lane: 'Standard', flag: '🇲🇽', actual: 48, predicted: 45, diff: 3, ts: new Date('2026-02-24T08:15:00').toISOString() },
-  { id: 't4', crossingId: 'PEACE_ARCH', crossingName: 'Peace Arch / Blaine', lane: 'Ready Lane', flag: '🇨🇦', actual: 22, predicted: 38, diff: -16, ts: new Date('2026-02-20T11:00:00').toISOString() },
-];
+export const SEED_TRIPS = [];
 
 export const timeAgo = (minutes) => {
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ago`;
+  if (minutes < 60) return t('{n}m ago', { n: minutes });
+  return t('{n}h ago', { n: Math.floor(minutes / 60) });
 };
 
 export const MEXICO_BASE_LIST = MEXICO_BASE;

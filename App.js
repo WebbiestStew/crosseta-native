@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, StyleSheet } from 'react-native';
+import { View, Text, Animated, StyleSheet, TouchableOpacity } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,9 +12,9 @@ import OnboardingScreen from './screens/OnboardingScreen';
 import HomeScreen from './screens/HomeScreen';
 import DetailScreen from './screens/DetailScreen';
 import AlertsScreen from './screens/AlertsScreen';
-import CommunityScreen from './screens/CommunityScreen';
 import TripsScreen from './screens/TripsScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import CommunityScreen from './screens/CommunityScreen';
 import ReportScreen from './screens/ReportScreen';
 import ShareScreen from './screens/ShareScreen';
 import InLineScreen from './screens/InLineScreen';
@@ -24,6 +24,7 @@ import TripPlanningScreen from './screens/TripPlanningScreen';
 import ChecklistScreen from './screens/ChecklistScreen';
 import MapScreen from './screens/MapScreen';
 import { TrackingFAB } from './components/TrackingFAB';
+import { t } from './i18n';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
@@ -70,7 +71,7 @@ function HomeTabs({ navigation }) {
       >
         <Tab.Screen
           name="CrossingsTab"
-          options={{ title: 'Crossings', tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} dark={dark} /> }}
+          options={{ title: t('Crossings'), tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} dark={dark} /> }}
         >
           {(props) => <HomeStackNavigator {...props} />}
         </Tab.Screen>
@@ -78,7 +79,7 @@ function HomeTabs({ navigation }) {
           name="AlertsTab"
           component={AlertsScreen}
           options={{
-            title: 'Alerts',
+            title: t('Alerts'),
             tabBarIcon: ({ focused }) => <TabIcon emoji="🔔" focused={focused} dark={dark} />,
             tabBarBadge: alertBadgeCount > 0 ? alertBadgeCount : undefined,
             tabBarBadgeStyle: { backgroundColor: '#FF453A', color: '#fff', fontSize: 10, fontWeight: '700' },
@@ -87,18 +88,18 @@ function HomeTabs({ navigation }) {
         <Tab.Screen
           name="CommunityTab"
           component={CommunityScreen}
-          options={{ title: 'Community', tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
+          options={{ title: t('Community'), tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} dark={dark} /> }}
         />
         <Tab.Screen
           name="TripsTab"
-          options={{ title: 'My Trips', tabBarIcon: ({ focused }) => <TabIcon emoji="🚗" focused={focused} dark={dark} /> }}
+          options={{ title: t('My Trips'), tabBarIcon: ({ focused }) => <TabIcon emoji="🚗" focused={focused} dark={dark} /> }}
         >
           {(props) => <TripsStackNavigator {...props} />}
         </Tab.Screen>
         <Tab.Screen
           name="SettingsTab"
           component={SettingsScreen}
-          options={{ title: 'Settings', tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} dark={dark} /> }}
+          options={{ title: t('Settings'), tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} dark={dark} /> }}
         />
       </Tab.Navigator>
       {/* Global FAB — floats above all tabs */}
@@ -137,7 +138,7 @@ function StaleBanner() {
 
   return (
     <Animated.View style={[styles.staleBanner, { transform: [{ translateY }] }]}>
-      <Text style={styles.staleBannerText}>⚠️ Live data may be delayed — tap a crossing to refresh</Text>
+      <Text style={styles.staleBannerText}>⚠️ {t('Live data may be delayed — tap a crossing to refresh')}</Text>
     </Animated.View>
   );
 }
@@ -162,7 +163,7 @@ function NotificationBanner({ message, onHide }) {
 }
 
 function AppNavigator() {
-  const { onboarded, dark, completeOnboarding, lastFetchTime, crossings } = useApp();
+  const { onboarded, dark, completeOnboarding, lastFetchTime, crossings, lang } = useApp();
   const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
@@ -187,7 +188,7 @@ function AppNavigator() {
   }, [crossings]);
 
   return (
-    <>
+    <React.Fragment key={lang}>
       <StatusBar style={dark ? 'light' : 'dark'} />
       {isStale && <StaleBanner />}
       <NavigationContainer ref={navigationRef} theme={dark ? DarkTheme : DefaultTheme}>
@@ -228,16 +229,38 @@ function AppNavigator() {
           )}
         </RootStack.Navigator>
       </NavigationContainer>
-    </>
+    </React.Fragment>
   );
+}
+
+class ErrorBoundary extends React.Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) { console.warn('Unhandled UI error', error); }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#1C1C1E' }}>
+        <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', marginBottom: 8 }}>{t('Something went wrong')}</Text>
+        <Text style={{ color: '#8E8E93', fontSize: 15, textAlign: 'center', marginBottom: 20 }}>
+          {t('CrossETA hit an unexpected error. Your saved data is safe.')}
+        </Text>
+        <TouchableOpacity onPress={() => this.setState({ failed: false })} style={{ backgroundColor: '#007AFF', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('Try again')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <AppNavigator />
-      </AppProvider>
+      <ErrorBoundary>
+        <AppProvider>
+          <AppNavigator />
+        </AppProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }
