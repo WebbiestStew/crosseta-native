@@ -13,7 +13,12 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.crosseta.app"
+      "bundleIdentifier": "com.diegovillarreal.crosseta",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "CrossETA uses your location to sort crossings by distance and to track your progress through the border line."
+      }
     },
     "android": {
       "adaptiveIcon": {

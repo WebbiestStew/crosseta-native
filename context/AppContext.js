@@ -11,6 +11,10 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Anonymous trip-duration upload. Keep false until https://api.crosseta.com/v1/trips is live;
+// enabling it also requires updating PrivacyInfo.xcprivacy and the App Store privacy answers.
+const CONTRIBUTE_TRIPS = false;
+
 const KEYS = {
   favorites:        '@crosseta/favorites',
   dark:             '@crosseta/dark',
@@ -468,8 +472,8 @@ export function AppProvider({ children }) {
         trackEvent('complete_trip', { crossingId: trip.crossingId, laneType: trip.laneType, actualWait: trip.actualWait });
 
         // ── Data contribution: fire-and-forget POST ───────────────────────
-        // TODO: replace with real endpoint
-        (async () => {
+        // Disabled until the backend endpoint exists (see CONTRIBUTE_TRIPS).
+        if (CONTRIBUTE_TRIPS) (async () => {
           try {
             await fetch('https://api.crosseta.com/v1/trips', {
               method: 'POST',
