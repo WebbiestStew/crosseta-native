@@ -3,12 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { BlurView } from 'expo-blur';
 import { Svg, Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { waitColor, BLUE, GREEN, ORANGE, RED } from '../data';
+import { t } from '../i18n';
 
 // ─── WAIT PILL ────────────────────────────────────────────────────────────────
 export const WaitPill = ({ wait, small }) => (
   <View style={[styles.pill, { backgroundColor: waitColor(wait) }, small && styles.pillSmall]}>
     <Text style={[styles.pillText, small && styles.pillTextSmall]}>
-      {wait == null || wait < 0 ? 'N/A' : `${wait} min`}
+      {wait == null || wait < 0 ? t('N/A') : `${wait} min`}
     </Text>
   </View>
 );

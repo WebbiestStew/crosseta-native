@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { estimateWait, ALL_CROSSINGS, SEED_REPORTS, SEED_TRIPS, BLUE } from '../data';
+import { t, resolveLanguage, setLanguage } from '../i18n';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -16,6 +17,7 @@ Notifications.setNotificationHandler({
 const CONTRIBUTE_TRIPS = false;
 
 const KEYS = {
+  lang:             '@crosseta/lang',
   favorites:        '@crosseta/favorites',
   dark:             '@crosseta/dark',
   haptics:          '@crosseta/haptics',
@@ -100,6 +102,13 @@ export function AppProvider({ children }) {
   const [savedTripTemplates, setSavedTripTemplates] = useState([]);
   /** lastFetchTime: unix ms of the most recent successful CBP fetch */
   const [lastFetchTime, setLastFetchTime] = useState(null);
+  /** langPref: 'auto' | 'en' | 'es'; lang: the resolved language actually in use */
+  const [langPref, setLangPrefState] = useState('auto');
+  const [lang, setLangState] = useState(() => {
+    const l = resolveLanguage('auto');
+    setLanguage(l);
+    return l;
+  });
   const notifCooldown = useRef({});
   /** Previous wait values — used by drop-alert logic to detect a decrease */
   const prevWaits = useRef({});
@@ -112,6 +121,12 @@ export function AppProvider({ children }) {
         const stored = Object.fromEntries(
           pairs.filter(([, v]) => v !== null).map(([k, v]) => [k, JSON.parse(v)])
         );
+        if (stored[KEYS.lang]) {
+          const l = resolveLanguage(stored[KEYS.lang]);
+          setLanguage(l);
+          setLangPrefState(stored[KEYS.lang]);
+          setLangState(l);
+        }
         if (stored[KEYS.favorites])                  setFavorites(stored[KEYS.favorites]);
         if (stored[KEYS.dark]        !== undefined)  setDark(stored[KEYS.dark]);
         if (stored[KEYS.haptics]     !== undefined)  setHaptics(stored[KEYS.haptics]);
@@ -207,8 +222,8 @@ export function AppProvider({ children }) {
         notifCooldown.current[cooldownKey] = now;
         Notifications.scheduleNotificationAsync({
           content: {
-            title: `${c.flag} ${c.name} – High Wait`,
-            body: `Standard lane is ${c.wait} min (your alert is set to ${threshold} min).`,
+            title: t('{flag} {name} – High Wait', { flag: c.flag, name: c.name }),
+            body: t('Standard lane is {n} min (your alert is set to {th} min).', { n: c.wait, th: threshold }),
             data: { crossingId: c.id },
           },
           trigger: null,
@@ -230,8 +245,8 @@ export function AppProvider({ children }) {
         notifCooldown.current[dropKey] = now;
         Notifications.scheduleNotificationAsync({
           content: {
-            title: `${c.flag} ${c.name} – Wait Just Dropped! 🟢`,
-            body: `Now only ${c.wait} min — good time to cross!`,
+            title: t('{flag} {name} – Wait Just Dropped! 🟢', { flag: c.flag, name: c.name }),
+            body: t('Now only {n} min — good time to cross!', { n: c.wait }),
             data: { crossingId: c.id, type: 'drop' },
           },
           trigger: null,
@@ -314,40 +329,6 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, []);
 
-  // ─── Weekly predictive best-time alerts ────────────────────────────────────
-  // Fires at most once per crossing per week, on Sunday mornings 8–11 AM.
-  useEffect(() => {
-    if (!hydrated) return;
-    const now = new Date();
-    if (now.getDay() !== 0) return;                          // Sundays only
-    if (now.getHours() < 8 || now.getHours() > 11) return;  // 8–11 AM window
-    const todayISO = now.toISOString().slice(0, 10);
-
-    favorites.forEach((id) => {
-      const c = crossings.find((x) => x.id === id);
-      if (!c || !notifSettings[id]) return;
-      if (weeklyNotifSent[id] === todayISO) return; // already sent this Sunday
-
-      const allSlots = (c.weeklyPattern ?? []).flatMap((d) =>
-        d.slots.map((s) => ({ day: d.day, slot: s.slot, wait: s.wait }))
-      );
-      if (!allSlots.length) return;
-      const best = allSlots.reduce((a, b) => (b.wait < a.wait ? b : a));
-
-      if (isInQuietHours()) return;
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: `${c.flag} Heading to ${c.name} this week?`,
-          body: `${best.day} ${best.slot} historically has the shortest wait (~${best.wait} min).`,
-          data: { crossingId: id, type: 'weekly' },
-        },
-        trigger: null,
-      }).catch(() => {});
-
-      setWeeklyNotifSent((prev) => ({ ...prev, [id]: todayISO }));
-    });
-  }, [hydrated, favorites]);
-
   // ─── Actions ─────────────────────────────────────────────────────────
   const toggleStar = (id) =>
     setFavorites((prev) => {
@@ -362,7 +343,7 @@ export function AppProvider({ children }) {
     const lastPostTs = reportMeta.lastPostedByCrossing?.[report.crossingId] ?? 0;
     if (now - lastPostTs < cooldownMs) {
       const minsLeft = Math.ceil((cooldownMs - (now - lastPostTs)) / 60000);
-      return { ok: false, error: `Please wait ${minsLeft} min before posting another report for this crossing.` };
+      return { ok: false, error: t('Please wait {n} min before posting another report for this crossing.', { n: minsLeft }) };
     }
 
     const isDuplicate = reports.some((r) =>
@@ -372,7 +353,7 @@ export function AppProvider({ children }) {
       (now - new Date(r.ts).getTime()) < 15 * 60 * 1000
     );
     if (isDuplicate) {
-      return { ok: false, error: 'A very similar report was just posted. Upvote it instead.' };
+      return { ok: false, error: t('A very similar report was just posted. Upvote it instead.') };
     }
 
     const created = {
@@ -637,6 +618,14 @@ export function AppProvider({ children }) {
   // Needs real per-crossing history, which the app doesn't collect yet.
   const getWeeklyInsight = () => null;
 
+  const setLangPref = (pref) => {
+    const l = resolveLanguage(pref);
+    setLanguage(l);
+    setLangPrefState(pref);
+    setLangState(l);
+    AsyncStorage.setItem(KEYS.lang, JSON.stringify(pref)).catch(() => {});
+  };
+
   const setAccessibility = (val) => {
     setAccessibilityState(val);
     if (hydrated) AsyncStorage.setItem(KEYS.accessibility, JSON.stringify(val));
@@ -677,6 +666,7 @@ export function AppProvider({ children }) {
       notificationProfile, applyNotificationProfile,
       savedTripTemplates, saveTripTemplate, deleteTripTemplate,
       getWeeklyInsight,
+      lang, langPref, setLangPref,
     }}>
       {children}
     </AppContext.Provider>

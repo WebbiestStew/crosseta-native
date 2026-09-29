@@ -7,9 +7,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { Svg, Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
+import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, waitLevel, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
 import { WaitPill, SectionHeader, BigSparkline, Card } from '../components/UI';
 import ReportCard from '../components/ReportCard';
+import { t } from '../i18n';
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINS = ['00', '15', '30', '45'];
@@ -78,8 +79,8 @@ export default function DetailScreen({ route, navigation }) {
       if (seconds < 5) return;
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `🚗 Time to leave for ${crossing.name}!`,
-          body: `${crossing.wait != null ? `Wait was ${crossing.wait} min when you set this. ` : ''}Leave now to arrive by ${arrHour}:${arrMin} ${arrAmPm}.`,
+          title: t('🚗 Time to leave for {name}!', { name: crossing.name }),
+          body: `${crossing.wait != null ? t('Wait was {n} min when you set this.', { n: crossing.wait }) + ' ' : ''}${t('Leave now to arrive by {time}.', { time: `${arrHour}:${arrMin} ${arrAmPm}` })}`,
           data: { crossingId: crossing.id },
         },
         trigger: { seconds },
@@ -93,11 +94,11 @@ export default function DetailScreen({ route, navigation }) {
       {/* Nav bar */}
       <View style={[styles.navBar, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backBtn}>‹ Crossings</Text>
+          <Text style={styles.backBtn}>‹ {t('Crossings')}</Text>
         </TouchableOpacity>
         <View style={styles.navRight}>
           <TouchableOpacity onPress={() => navigation.navigate('Share', { crossing })} style={{ marginRight: 16 }}>
-            <Text style={styles.shareBtn}>Share</Text>
+            <Text style={styles.shareBtn}>{t('Share')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => toggleStar(crossing.id)}>
             <Text style={{ fontSize: 24 }}>{isFav ? '⭐' : '☆'}</Text>
@@ -113,11 +114,11 @@ export default function DetailScreen({ route, navigation }) {
           <Text style={styles.heroSub}>{crossing.city} · {crossing.country}</Text>
           <View style={styles.heroBadges}>
             <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{crossing.is24h ? 'Open 24/7' : `Limited · ${crossing.hours}`}</Text>
+              <Text style={styles.heroBadgeText}>{crossing.is24h ? t('Open 24/7') : `${t('Limited')} · ${crossing.hours}`}</Text>
             </View>
             {crossing.driveMin > 0 && (
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>🚗 {crossing.driveMin} min drive</Text>
+                <Text style={styles.heroBadgeText}>🚗 {t('{n} min drive', { n: crossing.driveMin })}</Text>
               </View>
             )}
             {closingSoon && (
@@ -133,19 +134,19 @@ export default function DetailScreen({ route, navigation }) {
           <View style={{ padding: 18 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <View>
-                <Text style={{ fontSize: 13, color: '#8E8E93', fontWeight: '500' }}>Current Standard Wait</Text>
+                <Text style={{ fontSize: 13, color: '#8E8E93', fontWeight: '500' }}>{t('Current Standard Wait')}</Text>
                 <Text style={[styles.bigWait, { color: waitColor(crossing.wait) }]}>
-                  {crossing.wait ?? '—'}<Text style={styles.bigWaitUnit}> min</Text>
+                  {crossing.wait ?? '—'}<Text style={styles.bigWaitUnit}> {t('min')}</Text>
                 </Text>
                 <Text style={{ fontSize: 14, color: waitColor(crossing.wait), fontWeight: '700', marginTop: 2 }}>
-                  {waitLabel(crossing.wait)} Traffic
+                  {waitLevel(crossing.wait) ? t('{level} Traffic', { level: t(`${waitLevel(crossing.wait)} Traffic`) }) : t('No data')}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 12, color: '#8E8E93' }}>Source</Text>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: crossing.live ? GREEN : ORANGE }}>{crossing.live ? 'CBP live' : 'No live data'}</Text>
+                <Text style={{ fontSize: 12, color: '#8E8E93' }}>{t('Source')}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: crossing.live ? GREEN : ORANGE }}>{crossing.live ? t('CBP live') : t('No live data')}</Text>
                 <Text style={{ fontSize: 11, color: '#8E8E93', marginTop: 4 }}>
-                  {dataAgeMin(crossing) != null ? `Updated ${dataAgeMin(crossing)}m ago` : 'Not yet updated'}
+                  {dataAgeMin(crossing) != null ? t('Updated {n}m ago', { n: dataAgeMin(crossing) }) : t('Not yet updated')}
                 </Text>
               </View>
             </View>
@@ -153,7 +154,7 @@ export default function DetailScreen({ route, navigation }) {
         </Card>
 
         {/* Lane breakdown */}
-        <SectionHeader title="Lane Breakdown" dark={dark} />
+        <SectionHeader title={t('Lane Breakdown')} dark={dark} />
         <View style={styles.laneGrid}>
           {[
             { label: crossing.border === 'MX' ? 'SENTRI' : 'NEXUS', now: crossing.sentriWait, p1: crossing.sentriPredict1h, p3: crossing.sentriPredict3h },
@@ -161,11 +162,11 @@ export default function DetailScreen({ route, navigation }) {
             { label: 'Ready Lane', now: crossing.readyWait, p1: crossing.readyPredict1h, p3: crossing.readyPredict3h },
           ].map((lane) => (
             <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
-              <Text style={styles.laneLabel}>{lane.label}</Text>
+              <Text style={styles.laneLabel}>{t(lane.label)}</Text>
               <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
-              <Text style={styles.laneUnit}>min</Text>
-              <Text style={[styles.lanePredict, { color: waitColor(lane.p1) }]}>Est. +1h {fmtMin(lane.p1)}</Text>
-              <Text style={[styles.lanePredict, { color: waitColor(lane.p3) }]}>Est. +3h {fmtMin(lane.p3)}</Text>
+              <Text style={styles.laneUnit}>{t('min')}</Text>
+              <Text style={[styles.lanePredict, { color: waitColor(lane.p1) }]}>{t('Est. +1h')} {fmtMin(lane.p1)}</Text>
+              <Text style={[styles.lanePredict, { color: waitColor(lane.p3) }]}>{t('Est. +3h')} {fmtMin(lane.p3)}</Text>
             </View>
           ))}
         </View>
@@ -173,7 +174,7 @@ export default function DetailScreen({ route, navigation }) {
         {/* Other lanes + port status (CBP) */}
         {crossing.live && (
           <>
-            <SectionHeader title="Pedestrian & Commercial" dark={dark} />
+            <SectionHeader title={t('Pedestrian & Commercial')} dark={dark} />
             <View style={styles.laneGrid}>
               {[
                 { label: 'Pedestrian', now: crossing.pedWait },
@@ -182,27 +183,27 @@ export default function DetailScreen({ route, navigation }) {
                 { label: 'FAST', now: crossing.comFastWait },
               ].map((lane) => (
                 <View key={lane.label} style={[styles.laneCard, { backgroundColor: card }]}>
-                  <Text style={styles.laneLabel}>{lane.label}</Text>
+                  <Text style={styles.laneLabel}>{t(lane.label)}</Text>
                   <Text style={[styles.laneWait, { color: waitColor(lane.now) }]}>{lane.now ?? '—'}</Text>
-                  <Text style={styles.laneUnit}>min</Text>
+                  <Text style={styles.laneUnit}>{t('min')}</Text>
                 </View>
               ))}
             </View>
             {(crossing.portStatus || crossing.hoursText) && (
               <Text style={{ fontSize: 12, color: '#8E8E93', marginHorizontal: 16, marginTop: 8 }}>
-                {crossing.portStatus ? `Port ${crossing.portStatus}` : ''}
+                {crossing.portStatus ? t('Port {status}', { status: t(crossing.portStatus) }) : ''}
                 {crossing.portStatus && crossing.hoursText ? ' · ' : ''}
-                {crossing.hoursText ? `Hours: ${crossing.hoursText}` : ''}
+                {crossing.hoursText ? t('Hours: {h}', { h: crossing.hoursText }) : ''}
               </Text>
             )}
           </>
         )}
 
         {/* Leave-By Calculator */}
-        <SectionHeader title="Leave-By Calculator" dark={dark} />
+        <SectionHeader title={t('Leave-By Calculator')} dark={dark} />
         <Card dark={dark}>
           <View style={{ padding: 18 }}>
-            <Text style={{ fontSize: 13, color: '#8E8E93', marginBottom: 12 }}>I want to arrive at:</Text>
+            <Text style={{ fontSize: 13, color: '#8E8E93', marginBottom: 12 }}>{t('I want to arrive at:')}</Text>
             <View style={styles.calcPickers}>
               {[
                 { items: HOURS, value: arrHour, set: setArrHour },
@@ -226,7 +227,7 @@ export default function DetailScreen({ route, navigation }) {
                     style={[styles.pickerDisplay, { backgroundColor: inputBg, borderColor }]}
                   >
                     <Text style={[{ fontSize: 17, fontWeight: '700' }, { color: text }]}>{p.value}</Text>
-                    <Text style={{ color: '#8E8E93', fontSize: 12, marginTop: 2 }}>tap to change</Text>
+                    <Text style={{ color: '#8E8E93', fontSize: 12, marginTop: 2 }}>{t('tap to change')}</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -234,10 +235,10 @@ export default function DetailScreen({ route, navigation }) {
             <View style={[styles.calcResult, { backgroundColor: inputBg }]}>
               <View style={styles.calcRow}>
                 {[
-                  { l: 'Drive Time', v: `${crossing.driveMin || 0} min`, c: text },
-                  { l: 'Border Wait', v: fmtMin(crossing.wait, ' min'), c: waitColor(crossing.wait) },
-                  { l: 'Total Trip', v: `${totalTrip} min`, c: text },
-                  { l: 'Leave By', v: leaveByStr, c: BLUE },
+                  { l: t('Drive Time'), v: t('{n} min', { n: crossing.driveMin || 0 }), c: text },
+                  { l: t('Border Wait'), v: fmtMin(crossing.wait, ` ${t('min')}`), c: waitColor(crossing.wait) },
+                  { l: t('Total Trip'), v: t('{n} min', { n: totalTrip }), c: text },
+                  { l: t('Leave By'), v: leaveByStr, c: BLUE },
                 ].map((item) => (
                   <View key={item.l} style={styles.calcCell}>
                     <Text style={styles.calcCellLabel}>{item.l}</Text>
@@ -255,8 +256,8 @@ export default function DetailScreen({ route, navigation }) {
             >
               <Text style={[styles.leaveNotifText, { color: notifScheduled ? GREEN : BLUE }]}>
                 {notifScheduled
-                  ? `✓ Reminder set for ${leaveByStr}`
-                  : `🔔 Remind me to leave at ${leaveByStr}`}
+                  ? t('✓ Reminder set for {time}', { time: leaveByStr })
+                  : t('🔔 Remind me to leave at {time}', { time: leaveByStr })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -268,20 +269,20 @@ export default function DetailScreen({ route, navigation }) {
             onPress={() => navigation.navigate('Compare', { crossingId: crossing.id })}
             style={[styles.quickActionBtn, { backgroundColor: card }]}
           >
-            <Text style={[styles.quickActionText, { color: text }]}>📊 Compare Region</Text>
+            <Text style={[styles.quickActionText, { color: text }]}>📊 {t('Compare Region')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigation.navigate('Checklist', { crossingId: crossing.id })}
             style={[styles.quickActionBtn, { backgroundColor: card }]}
           >
-            <Text style={[styles.quickActionText, { color: text }]}>📋 Packing List</Text>
+            <Text style={[styles.quickActionText, { color: text }]}>📋 {t('Packing List')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Predictions row */}
-        <SectionHeader title="Estimates (rough, from a generic daily pattern)" dark={dark} />
+        <SectionHeader title={t('Estimates (rough, from a generic daily pattern)')} dark={dark} />
         <View style={styles.predictRow}>
-          {[{ label: 'Now', wait: crossing.wait }, { label: 'Est. +1 hour', wait: crossing.predict1h }, { label: 'Est. +3 hours', wait: crossing.predict3h }].map((p) => (
+          {[{ label: t('Now'), wait: crossing.wait }, { label: t('Est. +1 hour'), wait: crossing.predict1h }, { label: t('Est. +3 hours'), wait: crossing.predict3h }].map((p) => (
             <View key={p.label} style={[styles.predictCard, { backgroundColor: card }]}>
               <Text style={styles.predictLabel}>{p.label}</Text>
               <WaitPill wait={p.wait} />
@@ -292,7 +293,7 @@ export default function DetailScreen({ route, navigation }) {
         {/* Community reports for this crossing */}
         {crossingReports.length > 0 && (
           <>
-            <SectionHeader title="Community Reports" dark={dark} />
+            <SectionHeader title={t('Community Reports')} dark={dark} />
             {crossingReports.map((r) => (
               <ReportCard key={r.id} report={r} allReports={crossingReports} myVote={votes[r.id]} feedbackDone={feedbackDone[r.id]} onVote={vote} onFeedback={setFeedback} onFlag={flagReport} dark={dark} />
             ))}
@@ -303,7 +304,7 @@ export default function DetailScreen({ route, navigation }) {
         {/* Report button */}
         <TouchableOpacity onPress={() => navigation.navigate('Report', { crossing })} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 20, borderRadius: 14, overflow: 'hidden' }}>
           <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.reportBtn}>
-            <Text style={styles.reportBtnText}>📝 Report Wait Time</Text>
+            <Text style={styles.reportBtnText}>📝 {t('Report Wait Time')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

@@ -6,6 +6,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { useApp } from '../context/AppContext';
 import { BLUE, GREEN, colors } from '../data';
 import { SectionHeader } from '../components/UI';
+import { t } from '../i18n';
 
 const ITEMS = [
   { key: 'passport',      label: 'Passport / Photo ID', icon: '📘', required: true },
@@ -55,11 +56,11 @@ export default function ChecklistScreen({ route, navigation }) {
         borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={{ color: BLUE, fontSize: 17 }}>‹ Back</Text>
+          <Text style={{ color: BLUE, fontSize: 17 }}>‹ {t('Back')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: c.text }]}>Packing List</Text>
+        <Text style={[styles.navTitle, { color: c.text }]}>{t('Packing List')}</Text>
         <TouchableOpacity onPress={() => resetChecklist(crossingId)} hitSlop={8}>
-          <Text style={{ color: '#FF453A', fontSize: 15, fontWeight: '600' }}>Reset</Text>
+          <Text style={{ color: '#FF453A', fontSize: 15, fontWeight: '600' }}>{t('Reset')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,20 +77,20 @@ export default function ChecklistScreen({ route, navigation }) {
           </View>
           <View style={{ marginLeft: 20, flex: 1 }}>
             <Text style={[styles.progressTitle, { color: c.text }]}>
-              {allDone ? '✓ All set!' : `${checkedCount} of ${ITEMS.length} ready`}
+              {allDone ? t('✓ All set!') : t('{a} of {b} ready', { a: checkedCount, b: ITEMS.length })}
             </Text>
             <Text style={[styles.progressSub, { color: c.subtext }]}>
-              {crossing ? `${crossing.flag} ${crossing.name}` : 'Travel documents'}
+              {crossing ? `${crossing.flag} ${crossing.name}` : t('Travel documents')}
             </Text>
             {allDone && (
               <Text style={{ fontSize: 12, color: GREEN, fontWeight: '700', marginTop: 6 }}>
-                Have a smooth crossing! 🚗
+                {t('Have a smooth crossing! 🚗')}
               </Text>
             )}
           </View>
         </View>
 
-        <SectionHeader title="Required" dark={dark} />
+        <SectionHeader title={t('Required')} dark={dark} />
         {ITEMS.filter((i) => i.required).map((item) => (
           <CheckRow
             key={item.key}
@@ -101,7 +102,7 @@ export default function ChecklistScreen({ route, navigation }) {
           />
         ))}
 
-        <SectionHeader title="Nice to Have" dark={dark} />
+        <SectionHeader title={t('Nice to Have')} dark={dark} />
         {ITEMS.filter((i) => !i.required).map((item) => (
           <CheckRow
             key={item.key}
@@ -133,7 +134,7 @@ function CheckRow({ item, checked, onToggle, dark, c }) {
         color: checked ? (dark ? '#7FBA7F' : '#4AA45A') : c.text,
         textDecorationLine: checked ? 'line-through' : 'none',
       }]}>
-        {item.label}
+        {t(item.label)}
       </Text>
       <View style={[styles.checkbox, {
         backgroundColor: checked ? GREEN : 'transparent',

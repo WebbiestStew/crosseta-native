@@ -10,11 +10,12 @@ import { BLUE, GREEN, ORANGE, waitColor, timeAgo, isOpenNow, CROSSING_COORDS, by
 import { PillBtn, SectionHeader, WaitPill, Sparkline } from '../components/UI';
 import CrossingCard from '../components/CrossingCard';
 import SkeletonCard from '../components/SkeletonCard';
+import { t } from '../i18n';
 
 export default function HomeScreen({ navigation }) {
   const {
     crossings, favorites, toggleStar, reports, dark, hydrated, fetchCBP, trackEvent,
-    uiPrefs, getWeeklyInsight, lastFetchTime,
+    uiPrefs, lastFetchTime,
   } = useApp();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
@@ -55,7 +56,7 @@ export default function HomeScreen({ navigation }) {
       crossings.forEach((c) => {
         const coords = CROSSING_COORDS[c.id];
         if (coords) {
-          distances[c.id] = haversineKm(latitude, longitude, coords.lat, coords.lon) * 0.621371;
+          distances[c.id] = haversineKm(latitude, longitude, coords.latitude, coords.longitude) * 0.621371;
         }
       });
       setNearMeDistances(distances);
@@ -101,7 +102,6 @@ export default function HomeScreen({ navigation }) {
   const favCrossings = filtered.filter((c) => favorites.includes(c.id));
   const otherCrossings = filtered.filter((c) => !favorites.includes(c.id));
   const bestCrossing = filtered.filter((c) => c.live).sort(byWaitAsc)[0];
-  const weeklyInsight = getWeeklyInsight?.();
 
   const isLoading = !hydrated;
 
@@ -121,14 +121,14 @@ export default function HomeScreen({ navigation }) {
               style={[styles.reportBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: BLUE, paddingHorizontal: 10 }]}
               activeOpacity={0.8}
             >
-              <Text style={[styles.reportBtnText, { color: BLUE }]}>📍 Map</Text>
+              <Text style={[styles.reportBtnText, { color: BLUE }]}>📍 {t('Map')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => navigation.navigate('Report', { crossing: null })}
               style={styles.reportBtn}
               activeOpacity={0.8}
             >
-              <Text style={styles.reportBtnText}>+ Report</Text>
+              <Text style={styles.reportBtnText}>+ {t('Report')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -138,7 +138,7 @@ export default function HomeScreen({ navigation }) {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search crossings..."
+            placeholder={t('Search crossings...')}
             placeholderTextColor="#8E8E93"
             style={[styles.searchInput, { color: text }]}
           />
@@ -150,7 +150,7 @@ export default function HomeScreen({ navigation }) {
         </View>
         {!uiPrefs.simpleMode && (
           <TouchableOpacity style={[styles.advancedToggle, { backgroundColor: dark ? '#2C2C2E' : '#E9F3FF' }]} onPress={() => setShowAdvanced((v) => !v)}>
-            <Text style={[styles.advancedToggleText, { color: BLUE }]}>{showAdvanced ? 'Hide Advanced Filters' : 'Show Advanced Filters'}</Text>
+            <Text style={[styles.advancedToggleText, { color: BLUE }]}>{showAdvanced ? t('Hide Advanced Filters') : t('Show Advanced Filters')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -163,7 +163,7 @@ export default function HomeScreen({ navigation }) {
             refreshing={refreshing}
             onRefresh={onRefresh}
             tintColor={BLUE}
-            title="Refreshing wait times…"
+            title={t('Refreshing wait times…')}
             titleColor={dark ? '#fff' : '#555'}
           />
         }
@@ -172,43 +172,34 @@ export default function HomeScreen({ navigation }) {
         {!isLoading && bestCrossing && (
           <TouchableOpacity onPress={() => navigation.navigate('Detail', { crossing: bestCrossing })} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 12, borderRadius: 18, overflow: 'hidden' }}>
             <LinearGradient colors={['#007AFF', '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bestBanner}>
-              <Text style={styles.bestLabel}>BEST CROSSING RIGHT NOW</Text>
+              <Text style={styles.bestLabel}>{t('BEST CROSSING RIGHT NOW')}</Text>
               <View style={styles.bestRow}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                   <Text style={{ fontSize: 22 }}>{bestCrossing.flag}</Text>
                   <Text style={styles.bestName}>{bestCrossing.name}</Text>
                 </View>
                 <View style={styles.bestPill}>
-                  <Text style={styles.bestPillText}>{bestCrossing.wait} min</Text>
+                  <Text style={styles.bestPillText}>{t('{n} min', { n: bestCrossing.wait })}</Text>
                 </View>
               </View>
-              <Text style={styles.bestSub}>{bestCrossing.city} · {bestCrossing.wait} min wait</Text>
+              <Text style={styles.bestSub}>{bestCrossing.city} · {t('{n} min wait', { n: bestCrossing.wait })}</Text>
             </LinearGradient>
           </TouchableOpacity>
         )}
 
         {uiPrefs.showHelpTips && (
           <View style={[styles.helpTip, { backgroundColor: dark ? '#2C2C2E' : '#EAF4FF' }]}> 
-            <Text style={[styles.helpTipText, { color: dark ? '#D0E8FF' : '#0A5FBF' }]}>Tip: Tap a crossing card to see route planning and detailed trends.</Text>
-          </View>
-        )}
-
-        {weeklyInsight && (
-          <View style={[styles.insightCard, { backgroundColor: card }]}> 
-            <Text style={[styles.insightTitle, { color: text }]}>Weekly Insight</Text>
-            <Text style={styles.insightBody}>
-              Best bet: {weeklyInsight.crossingName} on {weeklyInsight.bestDay} ({weeklyInsight.bestSlot}) around {weeklyInsight.avgWait} min.
-            </Text>
+            <Text style={[styles.helpTipText, { color: dark ? '#D0E8FF' : '#0A5FBF' }]}>{t('Tip: Tap a crossing card to see route planning and detailed trends.')}</Text>
           </View>
         )}
 
         {/* Filter pills */}
         {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 8 }}>
           {[
-            { key: 'All', label: 'All' },
-            { key: 'MX', label: '🇲🇽 Mexico' },
-            { key: 'CA', label: '🇨🇦 Canada' },
-            ...regions.map((r) => ({ key: r, label: r })),
+            { key: 'All', label: t('All') },
+            { key: 'MX', label: t('🇲🇽 Mexico') },
+            { key: 'CA', label: t('🇨🇦 Canada') },
+            ...regions.map((r) => ({ key: r, label: t(r) })),
           ].map((f) => (
             <PillBtn key={f.key} label={f.label} active={filter === f.key} onPress={() => setFilter(f.key)} dark={dark} />
           ))}
@@ -217,22 +208,22 @@ export default function HomeScreen({ navigation }) {
         {/* Sort + Open Now pills */}
         {!uiPrefs.simpleMode && showAdvanced && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 10, gap: 8 }}>
           <PillBtn
-            label="🟢 Open Now"
+            label={t('🟢 Open Now')}
             active={openOnly}
             onPress={() => setOpenOnly((v) => !v)}
             dark={dark}
             activeColor={GREEN}
           />
-          <PillBtn label={loadingNearMe ? '…' : '📍 Near Me'} active={sort === 'nearMe'} onPress={toggleNearMe} dark={dark} activeColor={ORANGE} />
-          <PillBtn label="Wait ↑" active={sort === 'waitAsc'}  onPress={() => setSort(sort === 'waitAsc'  ? 'default' : 'waitAsc')}  dark={dark} />
-          <PillBtn label="Wait ↓" active={sort === 'waitDesc'} onPress={() => setSort(sort === 'waitDesc' ? 'default' : 'waitDesc')} dark={dark} />
-          <PillBtn label="A–Z"    active={sort === 'name'}     onPress={() => setSort(sort === 'name'     ? 'default' : 'name')}     dark={dark} />
+          <PillBtn label={loadingNearMe ? '…' : t('📍 Near Me')} active={sort === 'nearMe'} onPress={toggleNearMe} dark={dark} activeColor={ORANGE} />
+          <PillBtn label={t('Wait ↑')} active={sort === 'waitAsc'}  onPress={() => setSort(sort === 'waitAsc'  ? 'default' : 'waitAsc')}  dark={dark} />
+          <PillBtn label={t('Wait ↓')} active={sort === 'waitDesc'} onPress={() => setSort(sort === 'waitDesc' ? 'default' : 'waitDesc')} dark={dark} />
+          <PillBtn label={t('A–Z')} active={sort === 'name'}     onPress={() => setSort(sort === 'name'     ? 'default' : 'name')}     dark={dark} />
         </ScrollView>}
 
         {/* Skeleton loading */}
         {isLoading && (
           <>
-            <SectionHeader title="Loading…" dark={dark} />
+            <SectionHeader title={t('Loading…')} dark={dark} />
             {[1, 2, 3, 4, 5].map((i) => <SkeletonCard key={i} dark={dark} />)}
           </>
         )}
@@ -242,7 +233,7 @@ export default function HomeScreen({ navigation }) {
             {/* My Crossings */}
             {favCrossings.length > 0 && (
               <>
-                <SectionHeader title="My Crossings" dark={dark} />
+                <SectionHeader title={t('My Crossings')} dark={dark} />
                 {favCrossings.map((c) => (
                   <CrossingCard key={c.id} crossing={c} isFav={true} onStar={toggleStar} onPress={(c) => navigation.navigate('Detail', { crossing: c })} dark={dark} />
                 ))}
@@ -250,12 +241,12 @@ export default function HomeScreen({ navigation }) {
             )}
 
             {/* All / Other Crossings */}
-            <SectionHeader title={favCrossings.length > 0 ? 'Other Crossings' : 'All Crossings'} dark={dark} />
+            <SectionHeader title={favCrossings.length > 0 ? t('Other Crossings') : t('All Crossings')} dark={dark} />
             {otherCrossings.length === 0 && (
               <View style={[styles.emptyStateCard, { backgroundColor: card }]}>
-                <Text style={{ color: text, fontSize: 16, fontWeight: '700' }}>No crossings found</Text>
+                <Text style={{ color: text, fontSize: 16, fontWeight: '700' }}>{t('No crossings found')}</Text>
                 <Text style={{ color: '#8E8E93', textAlign: 'center', marginTop: 6, fontSize: 14 }}>
-                  Try changing filters or clear search.
+                  {t('Try changing filters or clear search.')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
@@ -266,7 +257,7 @@ export default function HomeScreen({ navigation }) {
                   }}
                   style={[styles.emptyActionBtn, { backgroundColor: BLUE }]}
                 >
-                  <Text style={styles.emptyActionText}>Reset Filters</Text>
+                  <Text style={styles.emptyActionText}>{t('Reset Filters')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -277,14 +268,14 @@ export default function HomeScreen({ navigation }) {
             {/* Community feed preview */}
             {reports.filter((r) => !r.hidden).length > 0 && (
               <>
-                <SectionHeader title="Recent Community Reports" dark={dark} />
+                <SectionHeader title={t('Recent Community Reports')} dark={dark} />
                 {reports.filter((r) => !r.hidden).slice(0, 3).map((r) => (
                   <View key={r.id} style={[styles.miniReport, { backgroundColor: card }]}>
                     <View style={[styles.miniAvatar, { backgroundColor: r.avatarColor }]}>
                       <Text style={styles.miniInitials}>{r.initials}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.miniReportName, { color: text }]}>{r.crossingName} · {r.lane}</Text>
+                      <Text style={[styles.miniReportName, { color: text }]}>{r.crossingName} · {t(r.lane)}</Text>
                       <Text style={styles.miniReportTime}>{timeAgo(r.time)}</Text>
                     </View>
                     <WaitPill wait={r.wait} small />
@@ -294,11 +285,11 @@ export default function HomeScreen({ navigation }) {
             )}
 
             <View style={[styles.snapshotCard, { backgroundColor: card }]}> 
-              <Text style={[styles.snapshotTitle, { color: text }]}>Offline Snapshot</Text>
+              <Text style={[styles.snapshotTitle, { color: text }]}>{t('Offline Snapshot')}</Text>
               <Text style={styles.snapshotSub}>
-                Last live update: {lastFetchTime ? `${Math.max(0, Math.round((Date.now() - lastFetchTime) / 60000))} min ago` : 'Not yet fetched'}
+                {t('Last live update: {when}', { when: lastFetchTime ? t('{n} min ago', { n: Math.max(0, Math.round((Date.now() - lastFetchTime) / 60000)) }) : t('Not yet fetched') })}
               </Text>
-              <Text style={styles.snapshotSub}>If service drops, cached waits remain visible.</Text>
+              <Text style={styles.snapshotSub}>{t('If service drops, cached waits remain visible.')}</Text>
             </View>
           </>
         )}

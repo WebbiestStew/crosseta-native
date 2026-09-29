@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
 import { BLUE, GREEN, waitColor, waitLabel, ALL_CROSSINGS } from '../data';
 import { WaitPill, SectionHeader, PillBtn } from '../components/UI';
+import { t } from '../i18n';
 
 const LANES = ['Standard', 'SENTRI / NEXUS', 'Ready Lane'];
 
@@ -35,7 +36,7 @@ export default function ReportScreen({ route, navigation }) {
   const handleSubmit = () => {
     if (!selectedCrossing) return;
     if (atCrossingNow === null || exactWait === null) {
-      setSubmitError('Please answer the two quick quality questions first.');
+      setSubmitError(t('Please answer the two quick quality questions first.'));
       return;
     }
     const result = addReport({
@@ -52,7 +53,7 @@ export default function ReportScreen({ route, navigation }) {
       },
     });
     if (!result?.ok) {
-      setSubmitError(result?.error || 'Unable to submit report right now.');
+      setSubmitError(result?.error || t('Unable to submit report right now.'));
       trackEvent?.('submit_report_failed', { crossingId: selectedCrossing.id, reason: result?.error || 'unknown' });
       return;
     }
@@ -67,14 +68,14 @@ export default function ReportScreen({ route, navigation }) {
           <View style={styles.successIcon}>
             <Text style={{ fontSize: 50 }}>✅</Text>
           </View>
-          <Text style={[styles.successTitle, { color: text }]}>Report Submitted!</Text>
+          <Text style={[styles.successTitle, { color: text }]}>{t('Report Submitted!')}</Text>
           <Text style={{ fontSize: 15, color: sub, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
-            Thank you for helping fellow travelers. Your report for {selectedCrossing?.name} has been added.
+            {t('Thank you for helping fellow travelers. Your report for {name} has been added.', { name: selectedCrossing?.name })}
           </Text>
           <WaitPill wait={wait} style={{ marginTop: 16 }} />
           <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.doneBtn, { marginTop: 32 }]}>
             <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.doneBtnInner}>
-              <Text style={styles.doneBtnText}>Done</Text>
+              <Text style={styles.doneBtnText}>{t('Done')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -87,9 +88,9 @@ export default function ReportScreen({ route, navigation }) {
       {/* Header */}
       <View style={[styles.navBar, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={{ color: sub, fontSize: 17 }}>Cancel</Text>
+          <Text style={{ color: sub, fontSize: 17 }}>{t('Cancel')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: text }]}>Report Wait Time</Text>
+        <Text style={[styles.navTitle, { color: text }]}>{t('Report Wait Time')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -97,7 +98,7 @@ export default function ReportScreen({ route, navigation }) {
         {/* Step 0: pick crossing */}
         {step === 0 && (
           <>
-            <SectionHeader title="🇲🇽 Mexico Crossings" dark={dark} />
+            <SectionHeader title={t('🇲🇽 Mexico Crossings')} dark={dark} />
             {mxList.map((c) => (
               <TouchableOpacity key={c.id} onPress={() => { setSelectedCrossing(c); setStep(1); }} style={[styles.crossingItem, { backgroundColor: card }]}>
                 <Text style={{ fontSize: 20 }}>{c.flag}</Text>
@@ -108,7 +109,7 @@ export default function ReportScreen({ route, navigation }) {
                 <Text style={{ color: BLUE, fontSize: 20 }}>›</Text>
               </TouchableOpacity>
             ))}
-            <SectionHeader title="🇨🇦 Canada Crossings" dark={dark} />
+            <SectionHeader title={t('🇨🇦 Canada Crossings')} dark={dark} />
             {caList.map((c) => (
               <TouchableOpacity key={c.id} onPress={() => { setSelectedCrossing(c); setStep(1); }} style={[styles.crossingItem, { backgroundColor: card }]}>
                 <Text style={{ fontSize: 20 }}>{c.flag}</Text>
@@ -134,25 +135,25 @@ export default function ReportScreen({ route, navigation }) {
               </View>
               {!initialCrossing && (
                 <TouchableOpacity onPress={() => { setSelectedCrossing(null); setStep(0); }}>
-                  <Text style={{ color: BLUE }}>Change</Text>
+                  <Text style={{ color: BLUE }}>{t('Change')}</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Lane */}
-            <SectionHeader title="Which Lane?" dark={dark} />
+            <SectionHeader title={t('Which Lane?')} dark={dark} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingLeft: 16, marginBottom: 8 }} contentContainerStyle={{ gap: 8 }}>
               {LANES.map((l) => (
-                <PillBtn key={l} label={l} active={lane === l} onPress={() => setLane(l)} dark={dark} />
+                <PillBtn key={l} label={t(l)} active={lane === l} onPress={() => setLane(l)} dark={dark} />
               ))}
             </ScrollView>
 
             {/* Wait slider */}
-            <SectionHeader title={`Wait Time: ${wait} minutes`} dark={dark} />
+            <SectionHeader title={t('Wait Time: {n} minutes', { n: wait })} dark={dark} />
             <View style={[styles.waitSection, { backgroundColor: card }]}>
               <View style={styles.waitDisplay}>
                 <Text style={[styles.waitBig, { color: waitColor(wait) }]}>{wait}</Text>
-                <Text style={styles.waitUnit}>min</Text>
+                <Text style={styles.waitUnit}>{t('min')}</Text>
                 <View style={[styles.waitLabelBadge, { backgroundColor: `${waitColor(wait)}22` }]}>
                   <Text style={[styles.waitLabelTxt, { color: waitColor(wait) }]}>{waitLabel(wait)}</Text>
                 </View>
@@ -168,12 +169,12 @@ export default function ReportScreen({ route, navigation }) {
             </View>
 
             {/* Note */}
-            <SectionHeader title="Optional Note" dark={dark} />
+            <SectionHeader title={t('Optional Note')} dark={dark} />
             <View style={{ marginHorizontal: 16 }}>
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="e.g. Officers processing quickly, CBX open..."
+                placeholder={t('e.g. Officers processing quickly, CBX open...')}
                 placeholderTextColor="#8E8E93"
                 multiline
                 numberOfLines={3}
@@ -183,17 +184,17 @@ export default function ReportScreen({ route, navigation }) {
               <Text style={{ fontSize: 12, color: sub, textAlign: 'right', marginTop: 4 }}>{note.length}/200</Text>
             </View>
 
-            <SectionHeader title="Quick Quality Check" dark={dark} />
+            <SectionHeader title={t('Quick Quality Check')} dark={dark} />
             <View style={[styles.waitSection, { backgroundColor: card, marginTop: 0 }]}> 
-              <Text style={[styles.qualityQ, { color: text }]}>Are you currently at this crossing?</Text>
+              <Text style={[styles.qualityQ, { color: text }]}>{t('Are you currently at this crossing?')}</Text>
               <View style={styles.qualityRow}>
-                <PillBtn label="Yes" active={atCrossingNow === true} onPress={() => setAtCrossingNow(true)} dark={dark} />
-                <PillBtn label="No" active={atCrossingNow === false} onPress={() => setAtCrossingNow(false)} dark={dark} />
+                <PillBtn label={t('Yes')} active={atCrossingNow === true} onPress={() => setAtCrossingNow(true)} dark={dark} />
+                <PillBtn label={t('No')} active={atCrossingNow === false} onPress={() => setAtCrossingNow(false)} dark={dark} />
               </View>
-              <Text style={[styles.qualityQ, { color: text, marginTop: 12 }]}>Is this exact or estimated?</Text>
+              <Text style={[styles.qualityQ, { color: text, marginTop: 12 }]}>{t('Is this exact or estimated?')}</Text>
               <View style={styles.qualityRow}>
-                <PillBtn label="Exact" active={exactWait === true} onPress={() => setExactWait(true)} dark={dark} />
-                <PillBtn label="Estimated" active={exactWait === false} onPress={() => setExactWait(false)} dark={dark} />
+                <PillBtn label={t('Exact')} active={exactWait === true} onPress={() => setExactWait(true)} dark={dark} />
+                <PillBtn label={t('Estimated')} active={exactWait === false} onPress={() => setExactWait(false)} dark={dark} />
               </View>
             </View>
 
@@ -203,7 +204,7 @@ export default function ReportScreen({ route, navigation }) {
             )}
             <TouchableOpacity onPress={handleSubmit} activeOpacity={0.85} style={{ marginHorizontal: 16, marginTop: 24, borderRadius: 14, overflow: 'hidden' }}>
               <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.submitBtn}>
-                <Text style={styles.submitText}>Submit Report</Text>
+                <Text style={styles.submitText}>{t('Submit Report')}</Text>
               </LinearGradient>
             </TouchableOpacity>
           </>

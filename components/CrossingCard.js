@@ -2,10 +2,11 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { WaitPill } from './UI';
 import { waitColor, BLUE, GREEN, ORANGE, RED, getTimeUntilClose, fmtMin, dataAgeMin } from '../data';
+import { t } from '../i18n';
 
 export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, distanceMi }) {
   const trendIcon = crossing.trend === 'up' ? '↑' : crossing.trend === 'down' ? '↓' : '→';
-  const trendWord = crossing.trend === 'up' ? 'Rising' : crossing.trend === 'down' ? 'Dropping' : 'Steady';
+  const trendWord = crossing.trend === 'up' ? t('Rising') : crossing.trend === 'down' ? t('Dropping') : t('Steady');
   const trendColor = crossing.trend === 'up' ? RED : crossing.trend === 'down' ? GREEN : '#8E8E93';
   const age = dataAgeMin(crossing);
   const stale = age != null && age > 15;
@@ -17,8 +18,8 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
   const closingSoon = minsUntilClose !== null && minsUntilClose <= 120;
   const closeLabel = minsUntilClose !== null
     ? minsUntilClose >= 60
-      ? `Closes in ${Math.floor(minsUntilClose / 60)}h ${minsUntilClose % 60}m`
-      : `Closes in ${minsUntilClose}m`
+      ? t('Closes in {h}h {m}m', { h: Math.floor(minsUntilClose / 60), m: minsUntilClose % 60 })
+      : t('Closes in {m}m', { m: minsUntilClose })
     : null;
 
   return (
@@ -37,13 +38,13 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             {crossing.trend && <Text style={{ fontSize: 12, color: trendColor, fontWeight: '700' }}>{trendWord}</Text>}
             {!crossing.is24h && (
               <View style={styles.limitedBadge}>
-                <Text style={styles.limitedText}>Limited</Text>
+                <Text style={styles.limitedText}>{t('Limited')}</Text>
               </View>
             )}
           </View>
           <Text style={styles.subtitle} numberOfLines={1}>
             {crossing.city}
-            {crossing.driveMin > 0 ? ` · ${crossing.driveMin}m drive` : ''}
+            {crossing.driveMin > 0 ? ` · ${t('{n}m drive', { n: crossing.driveMin })}` : ''}
             {distanceMi != null ? ` · ${distanceMi < 10 ? distanceMi.toFixed(1) : Math.round(distanceMi)} mi` : ''}
           </Text>
           {/* Chips */}
@@ -51,20 +52,20 @@ export default function CrossingCard({ crossing, isFav, onStar, onPress, dark, d
             {crossing.live && (
               <View style={[styles.chip, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7' }]}>
                 <Text style={[styles.chipLabel, { color: dark ? '#aaa' : '#555' }]}>
-                  Est. +1h <Text style={{ color: waitColor(crossing.predict1h), fontWeight: '700' }}>{fmtMin(crossing.predict1h)}</Text>
+                  {t('Est. +1h')} <Text style={{ color: waitColor(crossing.predict1h), fontWeight: '700' }}>{fmtMin(crossing.predict1h)}</Text>
                 </Text>
               </View>
             )}
             {crossing.live && (
               <View style={[styles.chip, { backgroundColor: dark ? '#3A3A3C' : '#F2F2F7' }]}>
                 <Text style={[styles.chipLabel, { color: dark ? '#aaa' : '#555' }]}>
-                  Est. +3h <Text style={{ color: waitColor(crossing.predict3h), fontWeight: '700' }}>{fmtMin(crossing.predict3h)}</Text>
+                  {t('Est. +3h')} <Text style={{ color: waitColor(crossing.predict3h), fontWeight: '700' }}>{fmtMin(crossing.predict3h)}</Text>
                 </Text>
               </View>
             )}
             <View style={[styles.chip, { backgroundColor: stale || !crossing.live ? 'rgba(255,159,10,0.15)' : (dark ? '#3A3A3C' : '#F2F2F7') }]}>
               <Text style={[styles.chipLabel, { color: stale || !crossing.live ? ORANGE : (dark ? '#aaa' : '#555') }]}>
-                {crossing.laneStatus ?? (/closed/i.test(crossing.portStatus ?? '') ? 'Port closed' : crossing.live ? `${age}m ago` : 'No live data')}
+                {crossing.laneStatus ? t(crossing.laneStatus) : (/closed/i.test(crossing.portStatus ?? '') ? t('Port closed') : crossing.live ? t('{n}m ago', { n: age }) : t('No live data'))}
               </Text>
             </View>
             {closingSoon && (

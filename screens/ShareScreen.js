@@ -5,13 +5,14 @@ import {
 import { captureRef } from 'react-native-view-shot';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BLUE, GREEN, ORANGE, RED, waitColor, waitLabel, fmtMin, dataAgeMin } from '../data';
+import { t } from '../i18n';
 
 export default function ShareScreen({ route, navigation }) {
   const { crossing } = route.params;
   const cardRef = useRef(null);
 
   const handleShareText = async () => {
-    const message = `🚦 Border Wait: ${crossing.name}\n📍 ${crossing.city}\n⏱ Current Wait: ${crossing.wait != null ? `${crossing.wait} min (${waitLabel(crossing.wait)})` : 'no live data'}\n\n📱 Check live times → CrossETA app`;
+    const message = `${t('🚦 Border Wait: {name}', { name: crossing.name })}\n📍 ${crossing.city}\n${t('⏱ Current Wait: {w}', { w: crossing.wait != null ? `${crossing.wait} min (${waitLabel(crossing.wait)})` : t('no live data') })}\n\n${t('📱 Check live times → CrossETA app')}`;
     await Share.share({ message, title: `CrossETA – ${crossing.name}` });
   };
 
@@ -31,9 +32,9 @@ export default function ShareScreen({ route, navigation }) {
       {/* Nav */}
       <View style={styles.navBar}>
         <View style={{ width: 60 }} />
-        <Text style={styles.navTitle}>Share Crossing</Text>
+        <Text style={styles.navTitle}>{t('Share Crossing')}</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 60, alignItems: 'flex-end' }}>
-          <Text style={{ color: BLUE, fontSize: 17, fontWeight: '600' }}>Done</Text>
+          <Text style={{ color: BLUE, fontSize: 17, fontWeight: '600' }}>{t('Done')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -43,7 +44,7 @@ export default function ShareScreen({ route, navigation }) {
           <LinearGradient colors={['#000', '#111']} style={styles.shareCard}>
           <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardHeader}>
             <Text style={styles.cardHeaderText}>🚦 CrossETA</Text>
-            <Text style={styles.cardHeaderSub}>Live Border Wait Times • Diego V / Stewy</Text>
+            <Text style={styles.cardHeaderSub}>{t('Live Border Wait Times')} • Diego V / Stewy</Text>
           </LinearGradient>
 
           <View style={styles.cardBody}>
@@ -54,7 +55,7 @@ export default function ShareScreen({ route, navigation }) {
             </View>
             <View style={styles.cardRight}>
               <Text style={[styles.cardWait, { color }]}>{crossing.wait ?? '—'}</Text>
-              <Text style={styles.cardMin}>min</Text>
+              <Text style={styles.cardMin}>{t('min')}</Text>
               <View style={[styles.cardBadge, { backgroundColor: `${color}33` }]}>
                 <Text style={[styles.cardBadgeText, { color }]}>{waitLabel(crossing.wait)}</Text>
               </View>
@@ -64,8 +65,8 @@ export default function ShareScreen({ route, navigation }) {
           <View style={styles.cardFooter}>
             {[
               { l: 'SENTRI', v: crossing.sentriWait },
-              { l: 'Est. +1h', v: crossing.predict1h },
-              { l: 'Est. +3h', v: crossing.predict3h },
+              { l: t('Est. +1h'), v: crossing.predict1h },
+              { l: t('Est. +3h'), v: crossing.predict3h },
             ].map((p) => (
               <View key={p.l} style={styles.cardFooterItem}>
                 <Text style={styles.cardFooterLabel}>{p.l}</Text>
@@ -73,8 +74,8 @@ export default function ShareScreen({ route, navigation }) {
               </View>
             ))}
             <View style={styles.cardFooterItem}>
-              <Text style={styles.cardFooterLabel}>Updated</Text>
-              <Text style={styles.cardFooterValue}>{fmtMin(dataAgeMin(crossing), 'm ago')}</Text>
+              <Text style={styles.cardFooterLabel}>{t('Updated')}</Text>
+              <Text style={styles.cardFooterValue}>{dataAgeMin(crossing) != null ? t('{n}m ago', { n: dataAgeMin(crossing) }) : '—'}</Text>
             </View>
           </View>
           </LinearGradient>
@@ -83,12 +84,12 @@ export default function ShareScreen({ route, navigation }) {
         {/* Share buttons */}
         <TouchableOpacity onPress={handleShareImage} activeOpacity={0.85} style={styles.shareBtn}>
           <LinearGradient colors={[BLUE, '#5AC8FA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.shareBtnInner}>
-            <Text style={styles.shareBtnText}>📸 Share as Image</Text>
+            <Text style={styles.shareBtnText}>{t('📸 Share as Image')}</Text>
           </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleShareText} activeOpacity={0.85} style={styles.moreBtn}>
-          <Text style={styles.moreBtnText}>Share as Text</Text>
+          <Text style={styles.moreBtnText}>{t('Share as Text')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

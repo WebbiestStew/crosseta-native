@@ -1,3 +1,4 @@
+import { t } from './i18n';
 // ─── COLORS & THEME ───────────────────────────────────────────────────────────
 export const BLUE = '#007AFF';
 export const GREEN = '#30D158';
@@ -79,11 +80,13 @@ export const waitColor = (w) => {
   return RED;
 };
 
+export const waitLevel = (w) => (w == null || w < 0 ? null : w <= 15 ? 'Low' : w <= 40 ? 'Moderate' : 'High');
+
 export const waitLabel = (w) => {
-  if (w == null || w < 0) return 'No data';
-  if (w <= 15) return 'Low';
-  if (w <= 40) return 'Moderate';
-  return 'High';
+  if (w == null || w < 0) return t('No data');
+  if (w <= 15) return t('Low');
+  if (w <= 40) return t('Moderate');
+  return t('High');
 };
 
 export const colors = (dark) => ({
@@ -217,8 +220,8 @@ export const SEED_REPORTS = [];
 export const SEED_TRIPS = [];
 
 export const timeAgo = (minutes) => {
-  if (minutes < 60) return `${minutes}m ago`;
-  return `${Math.floor(minutes / 60)}h ago`;
+  if (minutes < 60) return t('{n}m ago', { n: minutes });
+  return t('{n}h ago', { n: Math.floor(minutes / 60) });
 };
 
 export const MEXICO_BASE_LIST = MEXICO_BASE;

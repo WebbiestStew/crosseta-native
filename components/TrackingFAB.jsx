@@ -23,6 +23,7 @@ import Reanimated, {
 import { useApp } from '../context/AppContext';
 import { colors, BLUE, GREEN, RED, ORANGE } from '../data';
 import { DragHandle, PillBtn } from './UI';
+import { t } from '../i18n';
 
 const LANE_OPTIONS = [
   { key: 'standard', label: 'Standard',       color: BLUE },
@@ -127,7 +128,7 @@ export function TrackingFAB({ navigation, dark }) {
             style={styles.liveBtn}
           >
             <View style={styles.liveDot} />
-            <Text style={styles.liveBtnText}>LIVE</Text>
+            <Text style={styles.liveBtnText}>{t('LIVE')}</Text>
             {activeCr && (
               <Text style={styles.liveSubText} numberOfLines={1}>
                 {activeCr.flag} {activeCr.name}
@@ -145,7 +146,7 @@ export function TrackingFAB({ navigation, dark }) {
       <Reanimated.View style={[styles.fabWrapper, fabAnimStyle]}>
         <TouchableOpacity onPress={handleOpen} activeOpacity={0.85} style={styles.fab}>
           <Text style={styles.fabIcon}>🚗</Text>
-          <Text style={styles.fabText}>I'm In Line</Text>
+          <Text style={styles.fabText}>{t("I'm In Line")}</Text>
         </TouchableOpacity>
       </Reanimated.View>
 
@@ -176,9 +177,9 @@ export function TrackingFAB({ navigation, dark }) {
           <SafeAreaView style={[styles.sheet, { backgroundColor: c.card }]}>
             <DragHandle dark={dark} />
 
-            <Text style={[styles.sheetTitle, { color: c.text }]}>Start Tracking</Text>
+            <Text style={[styles.sheetTitle, { color: c.text }]}>{t('Start Tracking')}</Text>
             <Text style={[styles.sheetSub, { color: c.subtext }]}>
-              Select your crossing and lane type
+              {t('Select your crossing and lane type')}
             </Text>
 
             {/* Lane selector */}
@@ -196,7 +197,7 @@ export function TrackingFAB({ navigation, dark }) {
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.laneChipText, { color: lane === opt.key ? '#fff' : c.text }]}>
-                    {opt.label}
+                    {t(opt.label)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -208,7 +209,7 @@ export function TrackingFAB({ navigation, dark }) {
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Search crossings..."
+                placeholder={t('Search crossings...')}
                 placeholderTextColor="#8E8E93"
                 style={[styles.searchInput, { color: c.text }]}
                 autoCorrect={false}
@@ -218,7 +219,7 @@ export function TrackingFAB({ navigation, dark }) {
 
             {/* Favorites section (only when no search) */}
             {search.length === 0 && favCrossings.length > 0 && (
-              <Text style={[styles.sectionLabel, { color: c.subtext }]}>FAVORITES</Text>
+              <Text style={[styles.sectionLabel, { color: c.subtext }]}>{t('FAVORITES')}</Text>
             )}
 
             <FlatList
@@ -240,7 +241,7 @@ export function TrackingFAB({ navigation, dark }) {
                       />
                     ))}
                     <Text style={[styles.sectionLabel, { color: c.subtext, marginTop: 4 }]}>
-                      ALL CROSSINGS
+                      {t('ALL CROSSINGS')}
                     </Text>
                   </>
                 ) : null
@@ -266,7 +267,7 @@ export function TrackingFAB({ navigation, dark }) {
               disabled={!selected}
             >
               <Text style={[styles.startBtnText, { color: selected ? '#fff' : '#8E8E93' }]}>
-                {selected ? `Track  ${selected.flag}  ${selected.name}` : 'Select a crossing above'}
+                {selected ? t('Track {flag} {name}', { flag: selected.flag, name: selected.name }) : t('Select a crossing above')}
               </Text>
             </TouchableOpacity>
           </SafeAreaView>

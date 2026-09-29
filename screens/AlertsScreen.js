@@ -3,16 +3,11 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
-import { BLUE, GREEN, ORANGE, RED, waitColor } from '../data';
+import { BLUE, waitColor } from '../data';
 import { Toggle, SectionHeader, Card } from '../components/UI';
+import { t } from '../i18n';
 
 const THRESHOLDS = [10, 15, 20, 30];
-const ACTIVITY = [
-  { id: 1, icon: '⚠️', color: RED, title: 'San Ysidro – Heavy Delay', body: 'Standard lane wait jumped from 25 → 55 min.', time: '12m ago' },
-  { id: 2, icon: '✅', color: GREEN, title: 'San Luis – Wait Cleared', body: 'Wait dropped below 15 min threshold.', time: '38m ago' },
-  { id: 3, icon: '🚀', color: BLUE, title: 'SENTRI Lane Open', body: 'Otay Mesa SENTRI lane re-opened.', time: '1h ago' },
-  { id: 4, icon: '🚧', color: ORANGE, title: 'Tijuana – Partial Closure', body: 'Lane 3 closed for maintenance until 6 PM.', time: '2h ago' },
-];
 
 export default function AlertsScreen() {
   const { dark, crossings, favorites, notifSettings, thresholds, lowAlerts, toggleNotif, setThreshold, toggleLowAlert } = useApp();
@@ -27,18 +22,18 @@ export default function AlertsScreen() {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: bg }]}>
       <View style={[styles.header, { backgroundColor: dark ? 'rgba(28,28,30,0.95)' : 'rgba(242,242,247,0.95)', borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
-        <Text style={[styles.title, { color: text }]}>Alerts</Text>
+        <Text style={[styles.title, { color: text }]}>{t('Alerts')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Saved crossings notifications */}
-        <SectionHeader title="My Crossings" dark={dark} />
+        <SectionHeader title={t('My Crossings')} dark={dark} />
         {saved.length === 0 ? (
           <Card dark={dark} style={{ margin: 0 }}>
             <View style={{ padding: 24, alignItems: 'center' }}>
               <Text style={{ fontSize: 32 }}>☆</Text>
-              <Text style={[styles.emptyTitle, { color: text }]}>No Saved Crossings</Text>
-              <Text style={{ fontSize: 14, color: sub, textAlign: 'center', marginTop: 6 }}>Star crossings on the home screen to set up alerts.</Text>
+              <Text style={[styles.emptyTitle, { color: text }]}>{t('No Saved Crossings')}</Text>
+              <Text style={{ fontSize: 14, color: sub, textAlign: 'center', marginTop: 6 }}>{t('Star crossings on the home screen to set up alerts.')}</Text>
             </View>
           </Card>
         ) : (
@@ -58,19 +53,19 @@ export default function AlertsScreen() {
                   {enabled && (
                     <View>
                       <View style={styles.thresholdRow}>
-                        <Text style={{ fontSize: 12, color: sub, marginRight: 8 }}>Alert when over:</Text>
-                        {THRESHOLDS.map((t) => (
+                        <Text style={{ fontSize: 12, color: sub, marginRight: 8 }}>{t('Alert when over:')}</Text>
+                        {THRESHOLDS.map((th) => (
                           <TouchableOpacity
-                            key={t}
-                            onPress={() => setThreshold(crossing.id, t)}
-                            style={[styles.thresholdBtn, { backgroundColor: threshold === t ? BLUE : (dark ? '#3A3A3C' : '#F2F2F7'), borderColor: threshold === t ? BLUE : 'transparent' }]}
+                            key={th}
+                            onPress={() => setThreshold(crossing.id, th)}
+                            style={[styles.thresholdBtn, { backgroundColor: threshold === th ? BLUE : (dark ? '#3A3A3C' : '#F2F2F7'), borderColor: threshold === th ? BLUE : 'transparent' }]}
                           >
-                            <Text style={[styles.thresholdText, { color: threshold === t ? '#fff' : (dark ? '#aaa' : '#555') }]}>{t}m</Text>
+                            <Text style={[styles.thresholdText, { color: threshold === th ? '#fff' : (dark ? '#aaa' : '#555') }]}>{th}m</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
                       <View style={styles.dropAlertRow}>
-                        <Text style={{ fontSize: 12, color: sub }}>🟢 Also alert when wait drops</Text>
+                        <Text style={{ fontSize: 12, color: sub }}>🟢 {t('Also alert when wait drops')}</Text>
                         <Toggle value={!!lowAlerts[crossing.id]} onValueChange={() => toggleLowAlert(crossing.id)} />
                       </View>
                     </View>
@@ -82,22 +77,6 @@ export default function AlertsScreen() {
           })
         )}
 
-        {/* Activity feed */}
-        <SectionHeader title="Recent Activity" dark={dark} />
-        {ACTIVITY.map((item) => (
-          <View key={item.id} style={[styles.activityCard, { backgroundColor: card }]}>
-            <View style={[styles.activityDot, { backgroundColor: item.color }]}>
-              <Text style={{ fontSize: 16 }}>{item.icon}</Text>
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text style={[styles.activityTitle, { color: text }]}>{item.title}</Text>
-                <Text style={{ fontSize: 11, color: sub }}>{item.time}</Text>
-              </View>
-              <Text style={{ fontSize: 13, color: sub, marginTop: 3 }}>{item.body}</Text>
-            </View>
-          </View>
-        ))}
       </ScrollView>
     </SafeAreaView>
   );

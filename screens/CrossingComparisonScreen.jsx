@@ -5,6 +5,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { BLUE, GREEN, waitColor, colors, byWaitAsc, fmtMin } from '../data';
 import { SectionHeader } from '../components/UI';
+import { t } from '../i18n';
 
 export default function CrossingComparisonScreen({ route, navigation }) {
   const { crossingId } = route.params;
@@ -24,25 +25,25 @@ export default function CrossingComparisonScreen({ route, navigation }) {
         borderBottomColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
-          <Text style={{ color: BLUE, fontSize: 17 }}>‹ Back</Text>
+          <Text style={{ color: BLUE, fontSize: 17 }}>‹ {t('Back')}</Text>
         </TouchableOpacity>
-        <Text style={[styles.navTitle, { color: c.text }]}>Compare</Text>
+        <Text style={[styles.navTitle, { color: c.text }]}>{t('Compare')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <SectionHeader
-          title={`${region ?? 'Region'} · ${regionCrossings.length} crossings`}
+          title={t('{region} · {n} crossings', { region: region ?? t('Region'), n: regionCrossings.length })}
           dark={dark}
         />
 
         {/* Column header */}
         <View style={[styles.colHeaderRow, { backgroundColor: c.card }]}>
-          <Text style={[styles.colHdr, { flex: 2, textAlign: 'left', color: c.subtext }]}>Crossing</Text>
-          <Text style={[styles.colHdr, { color: c.subtext }]}>Now</Text>
+          <Text style={[styles.colHdr, { flex: 2, textAlign: 'left', color: c.subtext }]}>{t('Crossing')}</Text>
+          <Text style={[styles.colHdr, { color: c.subtext }]}>{t('Now')}</Text>
           <Text style={[styles.colHdr, { color: c.subtext }]}>SENTRI</Text>
-          <Text style={[styles.colHdr, { color: c.subtext }]}>+1h</Text>
-          <Text style={[styles.colHdr, { color: c.subtext }]}>+3h</Text>
+          <Text style={[styles.colHdr, { color: c.subtext }]}>{t('Est. +1h')}</Text>
+          <Text style={[styles.colHdr, { color: c.subtext }]}>{t('Est. +3h')}</Text>
         </View>
 
         {regionCrossings.map((crossing, i) => {
@@ -65,14 +66,14 @@ export default function CrossingComparisonScreen({ route, navigation }) {
                 }]} numberOfLines={1}>
                   {crossing.flag} {crossing.name}
                 </Text>
-                {i === 0 && (
+                {i === 0 && crossing.live && (
                   <Text style={{ fontSize: 10, color: GREEN, fontWeight: '700', marginTop: 2 }}>
-                    SHORTEST ✓
+                    {t('SHORTEST ✓')}
                   </Text>
                 )}
                 {isThis && (
                   <Text style={{ fontSize: 10, color: BLUE, fontWeight: '700', marginTop: 2 }}>
-                    ← This one
+                    {t('← This one')}
                   </Text>
                 )}
               </View>

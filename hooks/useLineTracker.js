@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import { useApp } from '../context/AppContext';
+import { t } from '../i18n';
 
 /** Distance (metres) the user must travel from start before auto-completion triggers. */
 const COMPLETION_DISTANCE_M = 200;
@@ -191,8 +192,8 @@ export function useLineTracker() {
       const minutes = Math.max(1, Math.round((endTime - ac.startTime) / 60_000));
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `${crossing.flag} Crossing Complete! 🎉`,
-          body: `You cleared ${crossing.name} in ${minutes} min.`,
+          title: t('{flag} Crossing Complete! 🎉', { flag: crossing.flag }),
+          body: t('You cleared {name} in {n} min.', { name: crossing.name, n: minutes }),
           data: { crossingId: crossing.id },
         },
         trigger: null,
@@ -222,8 +223,8 @@ export function useLineTracker() {
       const minutes = Math.max(1, Math.round((endTime - ac.startTime) / 60_000));
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `${crossing.flag} Crossing Complete! 🎉`,
-          body: `You cleared ${crossing.name} in ${minutes} min.`,
+          title: t('{flag} Crossing Complete! 🎉', { flag: crossing.flag }),
+          body: t('You cleared {name} in {n} min.', { name: crossing.name, n: minutes }),
           data: { crossingId: crossing.id },
         },
         trigger: null,
